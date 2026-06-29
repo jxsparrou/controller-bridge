@@ -1,0 +1,11 @@
+# Compilation output
+uwphook-bridge.exe
+
+# Configuration and logs
+uwphook-bridge.cfg
+uwphook-bridge.log
+
+# IDE files
+.vs/
+bin/
+obj/
