@@ -36,7 +36,7 @@ Open `uwphook-bridge.cfg` in a text editor and ensure the paths to `SISR.exe` an
 ```ini
 SisrPath=C:\Users\<YourUsername>\AppData\Local\SISR\SISR.exe
 SisrArguments=
-UwpHookPath=C:\Users\<YourUsername>\AppData\Local\Programs\UWPHook\UWPHook.exe
+UwpHookPath=C:\Users\<YourUsername>\AppData\Roaming\Briano\UWPHook\UWPHook.exe
 LogEnabled=true
 ```
 
@@ -45,7 +45,7 @@ To route a UWP game through the bridge:
 1. Open **Steam**.
 2. Right-click your UWP game shortcut (created by UWPHook) -> **Properties**.
 3. In the **Target** field, replace:
-   `"C:\Users\<YourUsername>\AppData\Local\Programs\UWPHook\UWPHook.exe"`
+   `"C:\Users\<YourUsername>\AppData\Roaming\Briano\UWPHook\UWPHook.exe"`
    with:
    `"C:\Path\To\uwphook-bridge.exe"`
 4. Keep the **Arguments / Launch Options** (the long AUMID string starting with `Microsoft...` or similar) **completely unchanged**.
