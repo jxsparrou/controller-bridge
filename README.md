@@ -1,6 +1,6 @@
 # UWPHook-SISR Bridge
 
-A lightweight, zero-dependency C# bridge that coordinates the lifecycles of [UWPHook](https://github.com/BrianLima/UWPHook) and [SISR](https://github.com/Alia5/SISR) (Steam Input System Redirector). 
+A lightweight C# bridge that coordinates the lifecycles of [UWPHook](https://github.com/BrianLima/UWPHook) and [SISR](https://github.com/Alia5/SISR) (Steam Input System Redirector). 
 
 This bridge allows you to play Windows Store / Xbox Game Pass UWP games through Steam with Steam Input controller support fully redirected at the system level.
 
@@ -16,41 +16,43 @@ Normally, running both requires writing custom launch scripts or maintaining mul
 6. **Exits cleanly** to notify Steam that you have finished playing.
 
 ## Features
-- **Windowless Execution:** Compiles as a Windows GUI application (`/target:winexe`), running silently in the background without opening distracting command prompt windows.
-- **Auto-Detection:** Automatically scans typical installation paths (in Local AppData and Program Files) to locate `SISR.exe` and `UWPHook.exe`.
-- **Easy Configuration:** Creates a `uwphook-bridge.cfg` configuration file on the first run for manual path adjustments.
-- **Robust Argument Forwarding:** Pass through complex arguments from Steam directly to UWPHook, preventing `IndexOutOfRangeException` crashes.
+- **Sleek Settings GUI:** A clean, dark-themed settings interface that opens when the program is launched without arguments.
+- **Steam Shortcut Automation:** Automatically scans your Steam profile userdata directories to locate `shortcuts.vdf` files, listing UWP games and enabling one-click shortcut redirection to `uwphook-bridge.exe` or restoration back to `UWPHook.exe`.
+- **Windowless Game Launching:** Compiles as a Windows GUI application (`/target:winexe`), running silently in the background when starting UWP games without open command prompt windows.
+- **Auto-Detection:** Automatically scans typical installation paths (in Local AppData and Program Files) to locate `SISR.exe` and `UWPHook.exe` on first run.
+- **Easy Configuration:** Creates a `uwphook-bridge.cfg` file for settings persistence.
+- **Robust Argument Forwarding:** Passes through complex arguments from Steam directly to UWPHook.
 - **Troubleshooting Friendly:** Writes clean execution logs to `uwphook-bridge.log`.
 
 ## Setup Instructions
 
 ### 1. Installation
 1. Compile or download `uwphook-bridge.exe` and place it in a folder of your choice (e.g. `C:\Users\<YourUsername>\Documents\uwphook-bridge`).
-2. Run `uwphook-bridge.exe` once with no arguments. It will:
-   - Create a default `uwphook-bridge.cfg` configuration file.
-   - Display a dialog showing the detected paths for SISR and UWPHook.
-   - Open the directory containing the config file.
+2. Run `uwphook-bridge.exe` once with no arguments. The sleek **Settings GUI** will launch automatically.
 
-### 2. Verify Config Paths
-Open `uwphook-bridge.cfg` in a text editor and ensure the paths to `SISR.exe` and `UWPHook.exe` match your setup. The defaults are:
-```ini
-SisrPath=C:\Users\<YourUsername>\AppData\Local\SISR\SISR.exe
-SisrArguments=
-UwpHookPath=C:\Users\<YourUsername>\AppData\Roaming\Briano\UWPHook\UWPHook.exe
-LogEnabled=true
-```
+### 2. Configure Paths
+Verify the detected paths in the path configuration boxes:
+- **SISR Path**: Path to `SISR.exe`
+- **SISR Arguments**: Optional launch arguments for SISR.
+- **UWPHook Path**: Path to `UWPHook.exe`
+Click **Save Path Config & Close** to persist your settings in `uwphook-bridge.cfg`.
 
-### 3. Configure Steam Shortcuts
-To route a UWP game through the bridge:
+### 3. Automate Steam Shortcuts
+To redirect your Steam shortcuts to run through the bridge:
+1. Ensure the Steam client is completely closed. (The GUI provides a convenient **Close Steam Client** button if it is running).
+2. Check the boxes next to the UWP games you wish to route through the bridge.
+3. Click **Bridge Selected to EXE**.
+4. Click **Refresh** to verify the status shows "Bridged via Bridge". You can now start Steam and launch your games!
+
+*(Optional: Click **Restore Selected to UWP** to revert shortcuts to launch directly through UWPHook.)*
+
+### 4. Manual Steam Shortcuts Configuration (Alternative)
+If you prefer to configure a shortcut manually:
 1. Open **Steam**.
 2. Right-click your UWP game shortcut (created by UWPHook) -> **Properties**.
-3. In the **Target** field, replace:
-   `"C:\Users\<YourUsername>\AppData\Roaming\Briano\UWPHook\UWPHook.exe"`
-   with:
+3. In the **Target** field, replace the UWPHook path with:
    `"C:\Path\To\uwphook-bridge.exe"`
 4. Keep the **Arguments / Launch Options** (the long AUMID string starting with `Microsoft...` or similar) **completely unchanged**.
-
-Now, launching the game from Steam will automatically spin up SISR + VIIPER, start the game, and cleanly close them when you exit!
 
 ## Building from Source
 This project uses the standard C# compiler (`csc.exe`) built into Windows. You do not need to install Visual Studio, .NET SDKs, or external compilation tools.
@@ -61,6 +63,17 @@ To build the executable:
    ```powershell
    powershell.exe -ExecutionPolicy Bypass -File .\build.ps1
    ```
+
+## Changelog
+
+### v1.1.0
+- **Added Settings GUI:** Introduced a new, dark-themed WinForms settings interface for configuring paths and managing Steam shortcuts.
+- **Added Steam Shortcut Redirection Automation:** Implemented a binary VDF (Valve Data Format) parser and serializer to programmatically read and modify `shortcuts.vdf` profiles.
+- **Added Steam Process Detection:** Real-time checking for whether the Steam client is running, preventing data loss by warning users and offering to close Steam before editing shortcuts.
+- **Expanded Build Configuration:** Added `System.Drawing` and `System.Core` assembly references to `build.ps1`.
+- **Basename Shortcut Matching:** Optimized shortcut matching to support custom installation directories and older bridge executable targets.
+
+---
 
 ## Credits
 This project coordinates two outstanding utilities:
