@@ -425,7 +425,7 @@ partial class Program
                 if (isUWPHook || isBridge || hasAumidPattern)
                 {
                     ListViewItem lvItem = new ListViewItem(item.AppName);
-                    lvItem.SubItems.Add(Path.GetFileName(item.Exe));
+                    lvItem.SubItems.Add(Path.GetFileName(trimmedExe));
                     
                     string statusStr = "Direct UWP";
                     if (isBridge) statusStr = "SISR-Enabled";
