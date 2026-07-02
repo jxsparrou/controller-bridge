@@ -49,7 +49,7 @@ partial class Program
         public SettingsForm()
         {
             this.Text = "Controller Bridge Settings";
-            this.Size = new Size(680, 735);
+            this.Size = new Size(680, 780);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
