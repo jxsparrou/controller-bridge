@@ -5,7 +5,7 @@ if (-not (Test-Path $compiler)) {
 }
 
 Write-Host "Compiling Program.cs into uwphook-bridge.exe..."
-& $compiler /target:winexe /out:uwphook-bridge.exe /r:System.Windows.Forms.dll /r:System.dll Program.cs
+& $compiler /target:winexe /out:uwphook-bridge.exe /r:System.Windows.Forms.dll /r:System.dll /r:System.Drawing.dll /r:System.Core.dll Program.cs
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Successfully compiled uwphook-bridge.exe!" -ForegroundColor Green
