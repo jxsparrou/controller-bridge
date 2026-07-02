@@ -303,7 +303,7 @@ partial class Program
             try
             {
                 Log(string.Format("SteamGridDB download started for: {0} (AppID: {1})", appName, appId));
-                string gridDir = Path.Combine(Path.Combine(Path.GetDirectoryName(vdfPath)), "grid");
+                string gridDir = Path.Combine(Path.GetDirectoryName(vdfPath), "grid");
                 if (!Directory.Exists(gridDir))
                 {
                     Directory.CreateDirectory(gridDir);
@@ -357,7 +357,7 @@ partial class Program
             var urlMatch = System.Text.RegularExpressions.Regex.Match(json, @"\""url\""\s*:\s*\""([^\""]+)""");
             if (urlMatch.Success)
             {
-                string imageUrl = urlMatch.Groups[1].Value;
+                string imageUrl = urlMatch.Groups[1].Value.Replace("\\/", "/");
                 string ext = Path.GetExtension(imageUrl);
                 if (string.IsNullOrEmpty(ext) || ext.Contains("?") || ext.Contains("&"))
                 {
