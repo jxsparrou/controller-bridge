@@ -651,6 +651,8 @@ partial class Program
 
         private void AddSelectedToSteam()
         {
+            SavePaths(); // Ensure API Key and path configs are saved before importing
+
             // Check Steam is not running
             bool steamRunning = Process.GetProcessesByName("steam").Length > 0;
             if (steamRunning)
