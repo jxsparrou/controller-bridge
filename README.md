@@ -43,13 +43,13 @@ You just click "Play" in Steam and everything works.
 ## Quick Start
 
 ### Step 1: Place the Executable
-Place `uwphook-bridge.exe` in a permanent folder, for example:
+Place `sBridge.exe` in a permanent folder, for example:
 ```
-C:\Users\<YourUsername>\Documents\uwphook-bridge\
+C:\Users\<YourUsername>\Documents\sBridge\
 ```
 
 ### Step 2: Open the Settings GUI
-Double-click `uwphook-bridge.exe` (with no arguments).
+Double-click `sBridge.exe` (with no arguments).
 
 1. **Configure SISR (optional)** — Auto-detects SISR path. Toggle SISR support on/off.
 2. **Configure SteamGridDB (optional)** — Enter your SteamGridDB API key to auto-pull artwork.
@@ -79,6 +79,7 @@ powershell.exe -ExecutionPolicy Bypass -File .\build.ps1
 - **Standalone UWP Mode**: Added toggle for SISR redirection to run the bridge as a pure UWPHook replacement.
 - **One-Click Migration**: Added a button to automatically upgrade old UWPHook shortcuts to the bridge.
 - **Optimized Scanning**: Cached Start Menu lookups for an 8x+ speedup, scanning in under 1 second.
+- **Executable Rename**: Renamed compiled output to `sBridge.exe` (with configs/logs renamed to `sBridge.cfg`/`sBridge.log`).
 - **Bug Fixes**: Fixed path exceptions caused by double quotes in Steam paths and PowerShell pipeline syntax errors.
 
 ### v0.2.0
@@ -91,7 +92,7 @@ powershell.exe -ExecutionPolicy Bypass -File .\build.ps1
 - **Initial Release:** Console-mode bridge that coordinates SISR and UWPHook lifecycles.
 - **Silent Execution:** Runs windowless alongside UWP games.
 - **Auto-Detection:** Scans common installation paths for SISR and UWPHook.
-- **Config File:** Settings stored in `uwphook-bridge.cfg`.
+- **Config File:** Settings stored in sBridge.cfg.
 
 ---
 

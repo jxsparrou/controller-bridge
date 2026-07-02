@@ -24,8 +24,8 @@ using System.Collections.Generic;
 
 partial class Program
 {
-    static string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "uwphook-bridge.cfg");
-    static string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "uwphook-bridge.log");
+    static string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sBridge.cfg");
+    static string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sBridge.log");
 
     static string sisrPath = "";
     static string sisrArguments = "";
@@ -241,14 +241,14 @@ partial class Program
             "=============================\n" +
             "This program launches UWP games directly. When launched with a UWP App ID (AUMID), it optionally runs SISR in the background, starts the game, and cleans up when the game closes.\n\n" +
             "Usage:\n" +
-            "  uwphook-bridge.exe <AUMID> [executable_hint]\n\n" +
+            "  sBridge.exe <AUMID> [executable_hint]\n\n" +
             "Config File:\n" +
             "  {0}\n\n" +
             "Current Paths:\n" +
             "  SISR.exe: {1} (Exists: {2}, Enabled: {3})\n\n" +
             "How to use in Steam:\n" +
             "1. Use the Settings GUI to scan for UWP apps and add them to Steam.\n" +
-            "2. Alternatively, manually add a shortcut pointing to this 'uwphook-bridge.exe' file, passing the AUMID as an argument.\n\n" +
+            "2. Alternatively, manually add a shortcut pointing to this 'sBridge.exe' file, passing the AUMID as an argument.\n\n" +
             "Click OK to open the configuration file folder.",
             configPath,
             sisrPath,
