@@ -315,7 +315,7 @@ partial class Program
             btnSave.FlatAppearance.BorderSize = 0;
             btnSave.BackColor = accentBlue;
             btnSave.ForeColor = Color.White;
-            btnSave.Location = new Point(15, 640);
+            btnSave.Location = new Point(15, 680);
             btnSave.Size = new Size(635, 35);
             btnSave.Click += (s, e) => SavePathsAndClose();
             this.Controls.Add(btnSave);
