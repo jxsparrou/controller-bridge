@@ -31,6 +31,7 @@ partial class Program
     static string sisrArguments = "";
     static bool logEnabled = true;
     public static bool sisrEnabled = true;
+    public static string sgdbApiKey = "";
 
     [STAThread]
     static void Main(string[] args)
@@ -158,6 +159,7 @@ partial class Program
         sisrArguments = "";
         logEnabled = true;
         sisrEnabled = true;
+        sgdbApiKey = "";
 
         if (File.Exists(configPath))
         {
@@ -191,6 +193,10 @@ partial class Program
                         {
                             bool.TryParse(val, out sisrEnabled);
                         }
+                        else if (key.Equals("SgdbApiKey", StringComparison.OrdinalIgnoreCase))
+                        {
+                            sgdbApiKey = val;
+                        }
                     }
                 }
             }
@@ -218,6 +224,7 @@ partial class Program
                 sw.WriteLine("SisrPath=" + sisrPath);
                 sw.WriteLine("SisrArguments=" + sisrArguments);
                 sw.WriteLine("SisrEnabled=" + sisrEnabled.ToString().ToLower());
+                sw.WriteLine("SgdbApiKey=" + sgdbApiKey);
                 sw.WriteLine("LogEnabled=" + logEnabled.ToString().ToLower());
             }
         }

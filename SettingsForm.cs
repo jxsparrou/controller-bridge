@@ -15,6 +15,7 @@ partial class Program
         private TextBox txtSisrArgs;
         private Button btnBrowseSisr;
         private Label lblSisrWarning;
+        private TextBox txtSgdbKey;
 
         private TabControl tabControl;
         private TabPage pageSteam;
@@ -49,7 +50,7 @@ partial class Program
         public SettingsForm()
         {
             this.Text = "Controller Bridge Settings";
-            this.Size = new Size(680, 680);
+            this.Size = new Size(680, 735);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -79,7 +80,7 @@ partial class Program
             grpPaths.ForeColor = textLight;
             grpPaths.BackColor = bgPanel;
             grpPaths.Location = new Point(15, 50);
-            grpPaths.Size = new Size(635, 160);
+            grpPaths.Size = new Size(635, 215);
             this.Controls.Add(grpPaths);
 
             // Inside grpPaths: Enable SISR checkbox
@@ -138,17 +139,34 @@ partial class Program
             txtSisrArgs.Size = new Size(605, 23);
             grpPaths.Controls.Add(txtSisrArgs);
 
+            // SteamGridDB API Key
+            Label lblSgdbKey = new Label();
+            lblSgdbKey.Text = "SteamGridDB API Key (optional, for game artwork):";
+            lblSgdbKey.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblSgdbKey.Location = new Point(15, 155);
+            lblSgdbKey.Size = new Size(300, 20);
+            grpPaths.Controls.Add(lblSgdbKey);
+
+            txtSgdbKey = new TextBox();
+            txtSgdbKey.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            txtSgdbKey.BackColor = bgInput;
+            txtSgdbKey.ForeColor = Color.White;
+            txtSgdbKey.BorderStyle = BorderStyle.FixedSingle;
+            txtSgdbKey.Location = new Point(15, 175);
+            txtSgdbKey.Size = new Size(605, 23);
+            grpPaths.Controls.Add(txtSgdbKey);
+
             // Global SISR Warning Label
             lblSisrWarning = new Label();
             lblSisrWarning.Text = "Checking SISR status...";
             lblSisrWarning.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            lblSisrWarning.Location = new Point(15, 215);
+            lblSisrWarning.Location = new Point(15, 270);
             lblSisrWarning.Size = new Size(635, 20);
             this.Controls.Add(lblSisrWarning);
 
             // Tab Control
             tabControl = new TabControl();
-            tabControl.Location = new Point(15, 240);
+            tabControl.Location = new Point(15, 295);
             tabControl.Size = new Size(635, 335);
             tabControl.Font = new Font("Segoe UI", 9, FontStyle.Regular);
             this.Controls.Add(tabControl);
@@ -297,7 +315,7 @@ partial class Program
             btnSave.FlatAppearance.BorderSize = 0;
             btnSave.BackColor = accentBlue;
             btnSave.ForeColor = Color.White;
-            btnSave.Location = new Point(15, 585);
+            btnSave.Location = new Point(15, 640);
             btnSave.Size = new Size(635, 35);
             btnSave.Click += (s, e) => SavePathsAndClose();
             this.Controls.Add(btnSave);
@@ -336,6 +354,7 @@ partial class Program
             chkEnableSisr.Checked = Program.sisrEnabled;
             txtSisr.Text = Program.sisrPath;
             txtSisrArgs.Text = Program.sisrArguments;
+            txtSgdbKey.Text = Program.sgdbApiKey;
             UpdateSisrStatus();
         }
 
@@ -344,6 +363,7 @@ partial class Program
             Program.sisrEnabled = chkEnableSisr.Checked;
             Program.sisrPath = txtSisr.Text.Trim();
             Program.sisrArguments = txtSisrArgs.Text.Trim();
+            Program.sgdbApiKey = txtSgdbKey.Text.Trim();
             Program.SaveConfig();
         }
 

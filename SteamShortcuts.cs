@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Forms;
+using System.Text;
 
 partial class Program
 {
@@ -186,6 +187,29 @@ partial class Program
         }
     }
 
+    public static uint CalculateAppId(string appName, string exePath)
+    {
+        // Concatenate raw Exe value (with quotes as written to VDF) and AppName
+        string combined = "\"" + exePath + "\"" + appName;
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(combined);
+        return ComputeCRC32(bytes) | 0x80000000;
+    }
+
+    private static uint ComputeCRC32(byte[] bytes)
+    {
+        uint crc = 0xFFFFFFFF;
+        uint poly = 0xEDB88320; // Reversed IEEE polynomial
+        foreach (byte b in bytes)
+        {
+            crc ^= b;
+            for (int i = 0; i < 8; i++)
+            {
+                crc = (crc & 1) != 0 ? (crc >> 1) ^ poly : crc >> 1;
+            }
+        }
+        return ~crc;
+    }
+
     /// <summary>
     /// Adds a UWP app as a new non-Steam shortcut pointing to the bridge executable.
     /// The shortcut's Exe = path to this bridge EXE, and LaunchOptions = "AUMID executable".
@@ -194,6 +218,9 @@ partial class Program
     {
         string myExe = Process.GetCurrentProcess().MainModule.FileName;
         string myDir = AppDomain.CurrentDomain.BaseDirectory;
+
+        // Calculate AppID
+        uint appId = CalculateAppId(appName, myExe);
 
         // Find the next available index key for the new shortcut
         int nextIndex = 0;
@@ -210,6 +237,9 @@ partial class Program
         VdfElement shortcut = new VdfElement();
         shortcut.Type = 0x00; // Map
         shortcut.Name = nextIndex.ToString();
+
+        // appid
+        shortcut.Children.Add(new VdfElement { Type = 0x02, Name = "appid", IntValue = (int)appId });
 
         // AppName
         shortcut.Children.Add(new VdfElement { Type = 0x01, Name = "AppName", StringValue = appName });
@@ -249,6 +279,12 @@ partial class Program
         shortcut.Children.Add(new VdfElement { Type = 0x00, Name = "tags" });
 
         root.Children.Add(shortcut);
+
+        // Download artwork if API Key is configured
+        if (!string.IsNullOrEmpty(Program.sgdbApiKey))
+        {
+            DownloadSteamGridArtwork(vdfPath, appName, appId);
+        }
     }
 
     /// <summary>
@@ -258,5 +294,84 @@ partial class Program
     public static void RemoveShortcutFromSteam(VdfElement root, VdfElement shortcutToRemove)
     {
         root.Children.Remove(shortcutToRemove);
+    }
+
+    public static void DownloadSteamGridArtwork(string vdfPath, string appName, uint appId)
+    {
+        System.Threading.ThreadPool.QueueUserWorkItem((state) =>
+        {
+            try
+            {
+                Log(string.Format("SteamGridDB download started for: {0} (AppID: {1})", appName, appId));
+                string gridDir = Path.Combine(Path.Combine(Path.GetDirectoryName(vdfPath)), "grid");
+                if (!Directory.Exists(gridDir))
+                {
+                    Directory.CreateDirectory(gridDir);
+                }
+
+                using (var client = new System.Net.WebClient())
+                {
+                    client.Headers.Add("Authorization", "Bearer " + Program.sgdbApiKey);
+                    client.Encoding = Encoding.UTF8;
+
+                    // 1. Search for game to get SteamGridDB Game ID
+                    string searchUrl = "https://www.steamgriddb.com/api/v2/search/autocomplete/" + Uri.EscapeDataString(appName);
+                    string searchJson = client.DownloadString(searchUrl);
+                    
+                    var idMatch = System.Text.RegularExpressions.Regex.Match(searchJson, @"\""id\""\s*:\s*(\d+)");
+                    if (!idMatch.Success)
+                    {
+                        Log("No matching game found on SteamGridDB for: " + appName);
+                        return;
+                    }
+                    string gameId = idMatch.Groups[1].Value;
+                    Log(string.Format("Found SteamGridDB game ID: {0} for: {1}", gameId, appName));
+
+                    // 2. Fetch & Download Grids (Portrait)
+                    DownloadAsset(client, "https://www.steamgriddb.com/api/v2/grids/game/" + gameId + "?dimensions=600x900,342x482,660x930", Path.Combine(gridDir, appId + "p"));
+
+                    // 3. Fetch & Download Heroes
+                    DownloadAsset(client, "https://www.steamgriddb.com/api/v2/heroes/game/" + gameId, Path.Combine(gridDir, appId + "_hero"));
+
+                    // 4. Fetch & Download Logos
+                    DownloadAsset(client, "https://www.steamgriddb.com/api/v2/logos/game/" + gameId, Path.Combine(gridDir, appId + "_logo"));
+
+                    // 5. Fetch & Download Icons
+                    DownloadAsset(client, "https://www.steamgriddb.com/api/v2/icons/game/" + gameId, Path.Combine(gridDir, appId + "_icon"));
+
+                    Log("SteamGridDB artwork download completed for: " + appName);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log(string.Format("Failed to download SteamGridDB artwork for {0}: {1}", appName, ex.Message));
+            }
+        });
+    }
+
+    private static void DownloadAsset(System.Net.WebClient client, string apiUrl, string targetPathWithoutExt)
+    {
+        try
+        {
+            string json = client.DownloadString(apiUrl);
+            var urlMatch = System.Text.RegularExpressions.Regex.Match(json, @"\""url\""\s*:\s*\""([^\""]+)""");
+            if (urlMatch.Success)
+            {
+                string imageUrl = urlMatch.Groups[1].Value;
+                string ext = Path.GetExtension(imageUrl);
+                if (string.IsNullOrEmpty(ext) || ext.Contains("?") || ext.Contains("&"))
+                {
+                    ext = ".png"; // Default fallback
+                }
+                
+                string destFile = targetPathWithoutExt + ext;
+                Log("Downloading image: " + imageUrl + " -> " + destFile);
+                client.DownloadFile(imageUrl, destFile);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log(string.Format("Failed to download asset from {0}: {1}", apiUrl, ex.Message));
+        }
     }
 }
