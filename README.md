@@ -66,12 +66,18 @@ To build the executable:
 
 ## Changelog
 
-### v1.1.0
+### v0.2.0
 - **Added Settings GUI:** Introduced a new, dark-themed WinForms settings interface for configuring paths and managing Steam shortcuts.
 - **Added Steam Shortcut Redirection Automation:** Implemented a binary VDF (Valve Data Format) parser and serializer to programmatically read and modify `shortcuts.vdf` profiles.
 - **Added Steam Process Detection:** Real-time checking for whether the Steam client is running, preventing data loss by warning users and offering to close Steam before editing shortcuts.
 - **Expanded Build Configuration:** Added `System.Drawing` and `System.Core` assembly references to `build.ps1`.
 - **Basename Shortcut Matching:** Optimized shortcut matching to support custom installation directories and older bridge executable targets.
+
+### v0.1.0
+- **Initial Release:** Lightweight, zero-dependency C# console application acting as a bridge between UWPHook and SISR to coordinate lifecycles.
+- **Silent Background Execution:** Runs windowless (`/target:winexe`) alongside UWP games.
+- **Auto-Detection:** Automatic path discovery scan for typical Local AppData/Program Files directories.
+- **Manual Config Integration:** Configuration parsed from `uwphook-bridge.cfg` on launch.
 
 ---
 
