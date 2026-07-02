@@ -11,12 +11,12 @@ I am currently open to suggestions for a new name for this utility! If you have 
 
 ## The Problem
 
-If you play Xbox Game Pass or Windows Store (UWP) games through Steam, you've probably run into this:
+If you play Xbox Game Pass or Windows Store (UWP) games, you've probably run into these issues when trying to add them to Steam:
 
-- Steam cannot natively launch or monitor UWP games (which are sandboxed and lack a standard `.exe` target).
-- **SISR** (Steam Input System Redirector) makes Steam's controller configurations work with UWP games, but you have to start and stop it yourself every time you play.
+- **No Native Steam Input**: UWP/Game Pass games are sandboxed and lack standard target `.exe` files, preventing Steam from hooking into them natively. Because of this, custom Steam Input profiles and non-Xbox controllers (PlayStation DualSense, Nintendo Switch Pro, Steam Controller) will not work out of the box.
+- **Manual Redirectors**: Tools like **SISR** (Steam Input System Redirector) solve this by translating Steam Input into system-level virtual gamepads, but they require you to manually launch the redirector before starting the game and remember to close it afterward.
 
-Without this bridge, you'd need to manually launch SISR before every gaming session and remember to close it afterward. If you forget, your controller input stays redirected system-wide, which can cause issues with other apps.
+Without an automated bridge, forgetting to close the redirector leaves your controller inputs hijacked system-wide, breaking input in other applications.
 
 ## The Solution
 
