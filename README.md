@@ -73,7 +73,7 @@ powershell.exe -ExecutionPolicy Bypass -File .\build.ps1
 ## Changelog
 
 ### v0.3.0
-- **UWPHook Integration**: Removed the external UWPHook dependency; UWP apps are now launched natively via COM.
+- **UWPHook-like Functionality**: Added native UWP launching via COM, completely removing the dependency on external launchers.
 - **Consolidated UI**: Reorganized layout into a single window with a tabbed interface.
 - **SteamGridDB Integration**: Added background artwork downloader (portrait grids, heroes, logos, and PNG-converted icons).
 - **Standalone UWP Mode**: Added toggle for SISR redirection to run the bridge as a pure UWPHook replacement.
