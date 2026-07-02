@@ -4,6 +4,11 @@
 
 UWPHook-SISR Bridge is a lightweight Windows utility that connects two great open-source tools — [UWPHook](https://github.com/BrianLima/UWPHook) and [SISR](https://github.com/Alia5/SISR) — so you don't have to manage them manually.
 
+## About This Project
+This is a personal hobby project created entirely using AI coding assistants to solve a specific problem I personally encountered. 
+
+I am currently open to suggestions for a new name for this utility! If you have a creative idea, feel free to open an issue or share your thoughts.
+
 ## The Problem
 
 If you play Xbox Game Pass or Windows Store (UWP) games through Steam, you've probably run into this:
