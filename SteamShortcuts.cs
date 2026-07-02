@@ -250,8 +250,14 @@ partial class Program
         // StartDir
         shortcut.Children.Add(new VdfElement { Type = 0x01, Name = "StartDir", StringValue = "\"" + myDir.TrimEnd('\\') + "\"" });
 
-        // icon — empty
-        shortcut.Children.Add(new VdfElement { Type = 0x01, Name = "icon", StringValue = "" });
+        // icon — points to the downloaded icon path in grid folder
+        string iconPath = "";
+        if (!string.IsNullOrEmpty(Program.sgdbApiKey))
+        {
+            string gridDir = Path.Combine(Path.GetDirectoryName(vdfPath), "grid");
+            iconPath = Path.Combine(gridDir, appId + "_icon.png");
+        }
+        shortcut.Children.Add(new VdfElement { Type = 0x01, Name = "icon", StringValue = iconPath });
 
         // ShortcutPath — empty
         shortcut.Children.Add(new VdfElement { Type = 0x01, Name = "ShortcutPath", StringValue = "" });
@@ -337,7 +343,7 @@ partial class Program
                     DownloadAsset(client, "https://www.steamgriddb.com/api/v2/logos/game/" + gameId, Path.Combine(gridDir, appId + "_logo"));
 
                     // 5. Fetch & Download Icons
-                    DownloadAsset(client, "https://www.steamgriddb.com/api/v2/icons/game/" + gameId, Path.Combine(gridDir, appId + "_icon"));
+                    DownloadAsset(client, "https://www.steamgriddb.com/api/v2/icons/game/" + gameId, Path.Combine(gridDir, appId + "_icon"), true);
 
                     Log("SteamGridDB artwork download completed for: " + appName);
                 }
@@ -349,7 +355,7 @@ partial class Program
         });
     }
 
-    private static void DownloadAsset(System.Net.WebClient client, string apiUrl, string targetPathWithoutExt)
+    private static void DownloadAsset(System.Net.WebClient client, string apiUrl, string targetPathWithoutExt, bool isIcon = false)
     {
         try
         {
@@ -364,9 +370,28 @@ partial class Program
                     ext = ".png"; // Default fallback
                 }
                 
-                string destFile = targetPathWithoutExt + ext;
+                string destFile = targetPathWithoutExt + (isIcon ? ".png" : ext);
                 Log("Downloading image: " + imageUrl + " -> " + destFile);
-                client.DownloadFile(imageUrl, destFile);
+                if (isIcon)
+                {
+                    try
+                    {
+                        byte[] data = client.DownloadData(imageUrl);
+                        using (var ms = new System.IO.MemoryStream(data))
+                        using (var img = System.Drawing.Image.FromStream(ms))
+                        {
+                            img.Save(destFile, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        client.DownloadFile(imageUrl, destFile);
+                    }
+                }
+                else
+                {
+                    client.DownloadFile(imageUrl, destFile);
+                }
             }
         }
         catch (Exception ex)
