@@ -32,42 +32,40 @@ You just click "Play" in Steam and everything works.
 
 ## Features
 
-- **Built-in UWP App Scanner** — Scans all installed UWP/Game Pass games on your system and lets you add them directly to Steam with one click.
-- **Settings GUI** — A clean, dark-themed settings window to configure your SISR path, scan UWP apps, and manage your Steam shortcuts from one place.
-- **Steam Shortcut Redirection** — Easily direct existing UWP shortcuts to run through this bridge.
-- **Zero Dependencies** — Built using native C# and Windows COM interfaces. Compiles with the C# compiler that's already on your Windows PC. No extra SDKs or installers required.
-- **Silent Operation** — Runs windowless in the background during gameplay.
-- **Logging** — Writes a clean log file (`uwphook-bridge.log`) for troubleshooting.
+- **Built-in UWP App Scanner** — Fast scanning of all UWP/Game Pass games on your system, allowing you to add them directly to Steam.
+- **Settings Tabbed GUI** — A single, consolidated interface to manage existing shortcuts, scan and add new UWP games, and configure settings.
+- **SteamGridDB Artwork Integration** — Automatically downloads grids, heroes, logos, and list icons from SteamGridDB on import when an API key is configured.
+- **One-Click UWPHook Migration** — Effortlessly migrate existing UWPHook shortcuts to use the bridge with a single click.
+- **Optional SISR Integration** — Toggle SISR controller redirection on or off. With SISR disabled, the bridge functions as a standalone, lightweight UWP launcher (a pure UWPHook replacement).
+- **Zero Dependencies** — Built with native C# and Windows COM interfaces. Compiles with the default Windows C# compiler.
+- **Silent & Invisible** — Runs silently in the background during gameplay with zero active overhead.
 
 ## Quick Start
 
-### Step 1: Download or Build
-Download `uwphook-bridge.exe` from the Releases page, or build it yourself (see [Building from Source](#building-from-source) below).
-
-Place it in a permanent folder, for example:
+### Step 1: Place the Executable
+Place `uwphook-bridge.exe` in a permanent folder, for example:
 ```
 C:\Users\<YourUsername>\Documents\uwphook-bridge\
 ```
 
 ### Step 2: Open the Settings GUI
-Double-click `uwphook-bridge.exe` (or run it with no arguments). The settings window will open.
+Double-click `uwphook-bridge.exe` (with no arguments).
 
-1. **Verify your SISR path** — The program will try to auto-detect where SISR is installed. If the path is wrong, click **Browse...** to fix it.
-2. **Click "Save Path Config & Close"** to save.
+1. **Configure SISR (optional)** — Auto-detects SISR path. Toggle SISR support on/off.
+2. **Configure SteamGridDB (optional)** — Enter your SteamGridDB API key to auto-pull artwork.
+3. Click **"Save & Close"** to save configuration.
 
-### Step 3: Add/Bridge Your Games
-> **Important:** Steam must be closed for these steps. The program will warn you if Steam is running and offer to close it for you.
+### Step 3: Manage Your Games
+> **Note:** Steam must be closed to edit shortcuts. The GUI will prompt you to close it.
 
-1. Open `uwphook-bridge.exe` again.
-2. **To Add New Games:** Click **"Scan & Add UWP Apps"**. In the window that opens, click **"Scan for UWP Apps"**, select the games you want to add, and click **"Add Selected to Steam"**.
-3. **To Bridge Existing Games:** Select the games in the list and click **"Bridge Selected"**.
-4. **To Remove Games:** Select games in the list and click **"Remove from Steam"**.
+- **To Add Games:** Go to **Add UWP Games** tab, click **Scan for UWP Apps**, select your games, and click **Add Selected to Steam**.
+- **To Migrate Old Games:** Click **Migrate From UWPHook** in the path configurations panel to convert old UWPHook shortcuts automatically.
+- **To Remove Games:** Go to **Steam Shortcuts** tab, select your games, and click **Remove from Steam**.
 
-Restart Steam, and your games are ready to play!
+Restart Steam and play!
 
 ## Building from Source
-This project compiles with the C# compiler (`csc.exe`) that ships with every Windows installation. No extra tools needed.
-
+Run the build script using PowerShell:
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\build.ps1
 ```
@@ -75,13 +73,16 @@ powershell.exe -ExecutionPolicy Bypass -File .\build.ps1
 ## Changelog
 
 ### v0.3.0
-- **Embedded UWPHook Functionality:** Completely removed the external UWPHook dependency. All UWP launching is now done natively using Windows COM interfaces (`IApplicationActivationManager`).
-- **Built-in UWP Scanner:** Added a new GUI form to scan and add UWP games directly to Steam.
-- **Code Refactoring:** Split the single-file codebase into manageable C# source files (`Program.cs`, `AppManager.cs`, `VdfParser.cs`, `SteamShortcuts.cs`, `SettingsForm.cs`, `UWPScanForm.cs`).
-- **Remove Shortcuts:** Added capability to remove UWP shortcuts directly from Steam.
+- **UWPHook Integration**: Removed the external UWPHook dependency; UWP apps are now launched natively via COM.
+- **Consolidated UI**: Reorganized layout into a single window with a tabbed interface.
+- **SteamGridDB Integration**: Added background artwork downloader (portrait grids, heroes, logos, and PNG-converted icons).
+- **Standalone UWP Mode**: Added toggle for SISR redirection to run the bridge as a pure UWPHook replacement.
+- **One-Click Migration**: Added a button to automatically upgrade old UWPHook shortcuts to the bridge.
+- **Optimized Scanning**: Cached Start Menu lookups for an 8x+ speedup, scanning in under 1 second.
+- **Bug Fixes**: Fixed path exceptions caused by double quotes in Steam paths and PowerShell pipeline syntax errors.
 
 ### v0.2.0
-- **Settings GUI:** Dark-themed WinForms interface for configuring paths and managing Steam shortcuts.
+- **Settings GUI**: Dark-themed WinForms interface for configuring paths and managing Steam shortcuts.
 - **Steam Shortcut Automation:** Binary VDF parser/serializer to read and modify Steam's `shortcuts.vdf` files programmatically.
 - **Steam Process Detection:** Warns when Steam is running and offers to close it before editing shortcuts.
 - **Flexible Matching:** Detects shortcuts regardless of where UWPHook or the bridge is installed.
