@@ -25,7 +25,6 @@ partial class Program
         private ListView lstGames;
         private Label lblSteamStatus;
         private Button btnCloseSteam;
-        private Button btnBridgeSelected;
         private Button btnRemoveSelected;
 
         // Tab 2 Controls (Add UWP Games)
@@ -80,7 +79,7 @@ partial class Program
             grpPaths.ForeColor = textLight;
             grpPaths.BackColor = bgPanel;
             grpPaths.Location = new Point(15, 50);
-            grpPaths.Size = new Size(635, 215);
+            grpPaths.Size = new Size(635, 255);
             this.Controls.Add(grpPaths);
 
             // Inside grpPaths: Enable SISR checkbox
@@ -156,17 +155,30 @@ partial class Program
             txtSgdbKey.Size = new Size(605, 23);
             grpPaths.Controls.Add(txtSgdbKey);
 
+            // Migrate Button
+            Button btnMigrate = new Button();
+            btnMigrate.Text = "Migrate From UWPHook";
+            btnMigrate.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnMigrate.FlatStyle = FlatStyle.Flat;
+            btnMigrate.FlatAppearance.BorderSize = 0;
+            btnMigrate.BackColor = Color.FromArgb(44, 44, 48);
+            btnMigrate.ForeColor = Color.White;
+            btnMigrate.Location = new Point(15, 210);
+            btnMigrate.Size = new Size(605, 30);
+            btnMigrate.Click += (s, e) => MigrateFromUwpHook();
+            grpPaths.Controls.Add(btnMigrate);
+
             // Global SISR Warning Label
             lblSisrWarning = new Label();
             lblSisrWarning.Text = "Checking SISR status...";
             lblSisrWarning.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            lblSisrWarning.Location = new Point(15, 270);
+            lblSisrWarning.Location = new Point(15, 310);
             lblSisrWarning.Size = new Size(635, 20);
             this.Controls.Add(lblSisrWarning);
 
             // Tab Control
             tabControl = new TabControl();
-            tabControl.Location = new Point(15, 295);
+            tabControl.Location = new Point(15, 335);
             tabControl.Size = new Size(635, 335);
             tabControl.Font = new Font("Segoe UI", 9, FontStyle.Regular);
             this.Controls.Add(tabControl);
@@ -215,18 +227,6 @@ partial class Program
             pageSteam.Controls.Add(lstGames);
 
             // Tab 1 Content: Action Buttons
-            btnBridgeSelected = new Button();
-            btnBridgeSelected.Text = "Enable SISR Support";
-            btnBridgeSelected.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            btnBridgeSelected.FlatStyle = FlatStyle.Flat;
-            btnBridgeSelected.FlatAppearance.BorderSize = 0;
-            btnBridgeSelected.BackColor = accentBlue;
-            btnBridgeSelected.ForeColor = Color.White;
-            btnBridgeSelected.Location = new Point(15, 255);
-            btnBridgeSelected.Size = new Size(155, 30);
-            btnBridgeSelected.Click += (s, e) => ApplyBridge();
-            pageSteam.Controls.Add(btnBridgeSelected);
-
             btnRemoveSelected = new Button();
             btnRemoveSelected.Text = "Remove from Steam";
             btnRemoveSelected.Font = new Font("Segoe UI", 9, FontStyle.Bold);
@@ -234,8 +234,8 @@ partial class Program
             btnRemoveSelected.FlatAppearance.BorderSize = 0;
             btnRemoveSelected.BackColor = accentRed;
             btnRemoveSelected.ForeColor = Color.White;
-            btnRemoveSelected.Location = new Point(180, 255);
-            btnRemoveSelected.Size = new Size(200, 30);
+            btnRemoveSelected.Location = new Point(15, 255);
+            btnRemoveSelected.Size = new Size(300, 30);
             btnRemoveSelected.Click += (s, e) => RemoveSelectedShortcuts();
             pageSteam.Controls.Add(btnRemoveSelected);
 
@@ -467,13 +467,13 @@ partial class Program
             }
         }
 
-        private void ApplyBridge()
+        private void MigrateFromUwpHook()
         {
             bool steamRunning = Process.GetProcessesByName("steam").Length > 0;
             if (steamRunning)
             {
                 DialogResult res = MessageBox.Show(
-                    "Steam is currently running. If you edit shortcuts while Steam is open, Steam will overwrite your changes when it closes.\n\n" +
+                    "Steam is currently running. If you migrate shortcuts while Steam is open, Steam will overwrite your changes when it closes.\n\n" +
                     "Would you like to close Steam and proceed?",
                     "Steam is Running",
                     MessageBoxButtons.YesNo,
@@ -489,7 +489,17 @@ partial class Program
                 }
             }
 
-            SavePaths(); // Save paths before starting modifications
+            DialogResult confirm = MessageBox.Show(
+                "This will scan your Steam shortcuts and automatically update any entries pointing to 'UWPHook.exe' to use 'uwphook-bridge.exe' instead.\n\n" +
+                "This preserves your game names, play time, and custom artwork.\n\n" +
+                "Do you want to proceed with the migration?",
+                "Migrate From UWPHook",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (confirm != DialogResult.Yes) return;
+
+            SavePaths();
 
             string myExe = Process.GetCurrentProcess().MainModule.FileName;
             string myDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -497,26 +507,27 @@ partial class Program
             List<SteamShortcutItem> modifiedItems = new List<SteamShortcutItem>();
             int count = 0;
 
-            foreach (ListViewItem lvItem in lstGames.Items)
+            var shortcuts = Program.LoadSteamShortcuts();
+            foreach (var item in shortcuts)
             {
-                var item = lvItem.Tag as SteamShortcutItem;
-                if (lvItem.Checked && item != null)
+                if (item.ShortcutElement != null)
                 {
                     var exeChild = item.ShortcutElement.Children.Find(c => c.Name.Equals("Exe", StringComparison.OrdinalIgnoreCase));
                     var startDirChild = item.ShortcutElement.Children.Find(c => c.Name.Equals("StartDir", StringComparison.OrdinalIgnoreCase));
 
-                    string targetExe = myExe;
-                    string targetStartDir = myDir;
-
-                    if (exeChild != null && !exeChild.StringValue.Equals(targetExe, StringComparison.OrdinalIgnoreCase))
+                    if (exeChild != null)
                     {
-                        exeChild.StringValue = targetExe;
-                        if (startDirChild != null)
+                        string trimmedExe = exeChild.StringValue.Replace("\"", "").Trim();
+                        if (trimmedExe.EndsWith("UWPHook.exe", StringComparison.OrdinalIgnoreCase))
                         {
-                            startDirChild.StringValue = targetStartDir;
+                            exeChild.StringValue = "\"" + myExe + "\"";
+                            if (startDirChild != null)
+                            {
+                                startDirChild.StringValue = "\"" + myDir.TrimEnd('\\') + "\"";
+                            }
+                            modifiedItems.Add(item);
+                            count++;
                         }
-                        modifiedItems.Add(item);
-                        count++;
                     }
                 }
             }
@@ -524,11 +535,11 @@ partial class Program
             if (count > 0)
             {
                 Program.SaveSteamShortcuts(modifiedItems);
-                MessageBox.Show(string.Format("Successfully updated {0} Steam shortcuts!", count), "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(string.Format("Successfully migrated {0} shortcuts from UWPHook to Controller Bridge!", count), "Migration Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else
             {
-                MessageBox.Show("No changes were needed for the selected games.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("No existing UWPHook shortcuts were found in Steam.", "Migration Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
 
             RefreshShortcutsList();
