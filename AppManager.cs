@@ -243,46 +243,54 @@ partial class Program
         // PowerShell script that outputs pipe-separated: Name|AUMID|Executable
         // One line per app. Filters out framework packages and packages with unresolved display names.
         string script = @"
-$installedapps = Get-AppxPackage
+$startApps = @{}
+try {
+    Get-StartApps | ForEach-Object {
+        if ($_.AppId -and $_.Name) {
+            $startApps[$_.AppId.ToLower()] = $_.Name
+        }
+    }
+} catch {}
+
+$installedapps = Get-AppxPackage | Where-Object { -not $_.IsFramework -and $_.InstallLocation }
 foreach ($app in $installedapps) {
     try {
-        if (-not $app.IsFramework) {
-            $manifest = Get-AppxPackageManifest $app
-            foreach ($appEntry in $manifest.Package.Applications.Application) {
-                $id = $appEntry.Id
-                $aumid = $app.PackageFamilyName + '!' + $id
-                $name = $manifest.Package.Properties.DisplayName
-                $executable = $appEntry.Executable
+        $manifest = Get-AppxPackageManifest $app
+        foreach ($appEntry in $manifest.Package.Applications.Application) {
+            $id = $appEntry.Id
+            $aumid = $app.PackageFamilyName + '!' + $id
+            $aumidKey = $aumid.ToLower()
 
-                # Skip entries with unresolved resource names
-                if ($name -like '*ms-resource*' -or $name -like '*DisplayName*') {
+            $name = $manifest.Package.Properties.DisplayName
+
+            # Use pre-resolved name if available, otherwise check resource
+            if ($startApps.ContainsKey($aumidKey)) {
+                $name = $startApps[$aumidKey]
+            } elseif ($name -like '*ms-resource*' -or $name -like '*DisplayName*') {
+                continue
+            }
+
+            $executable = $appEntry.Executable
+
+            # Handle apps using GameLaunchHelper or missing executable
+            if ([string]::IsNullOrWhiteSpace($executable) -or $executable -eq 'GameLaunchHelper.exe') {
+                $configPath = Join-Path $app.InstallLocation 'MicrosoftGame.Config'
+                if (Test-Path $configPath) {
                     try {
-                        $resolved = (Get-StartApps | Where-Object { $_.AppId -eq $aumid }).Name
-                        if ($resolved) { $name = $resolved }
-                        else { continue }
-                    } catch { continue }
-                }
-
-                # Handle apps using GameLaunchHelper or missing executable
-                if ([string]::IsNullOrWhiteSpace($executable) -or $executable -eq 'GameLaunchHelper.exe') {
-                    $configPath = Join-Path $app.InstallLocation 'MicrosoftGame.Config'
-                    if (Test-Path $configPath) {
-                        try {
-                            [xml]$msconfig = Get-Content $configPath
-                            $executable = $msconfig.Game.ExecutableList.Executable.Name
-                            if ([string]::IsNullOrWhiteSpace($executable)) {
-                                $executable = 'GameLaunchHelper.exe'
-                            }
-                        } catch {
-                            $executable = 'Unknown'
+                        [xml]$msconfig = Get-Content $configPath
+                        $executable = $msconfig.Game.ExecutableList.Executable.Name
+                        if ([string]::IsNullOrWhiteSpace($executable)) {
+                            $executable = 'GameLaunchHelper.exe'
                         }
-                    } elseif ([string]::IsNullOrWhiteSpace($executable)) {
+                    } catch {
                         $executable = 'Unknown'
                     }
+                } elseif ([string]::IsNullOrWhiteSpace($executable)) {
+                    $executable = 'Unknown'
                 }
-
-                Write-Output ('{0}|{1}|{2}' -f $name, $aumid, $executable)
             }
+
+            Write-Output ('{0}|{1}|{2}' -f $name, $aumid, $executable)
         }
     } catch { }
 }";
