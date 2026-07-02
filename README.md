@@ -85,3 +85,7 @@ To build the executable:
 This project coordinates two outstanding utilities:
 - **UWPHook** by [BrianLima](https://github.com/BrianLima) — The wrapper utility that links Windows Store/UWP applications to Steam.
 - **SISR** (Steam Input System Redirector) by [Alia5](https://github.com/Alia5) — The controller redirector that maps Steam Input layouts to system-level virtual gamepads.
+
+## License
+This project is licensed under the GNU General Public License version 3 (GPL-3.0) - see the [LICENSE](file:///C:/Users/john/.gemini/antigravity/worktrees/uwphook-bridge/add-gui-path-automation/LICENSE) file for details.
+
