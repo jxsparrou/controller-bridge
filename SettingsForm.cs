@@ -309,7 +309,7 @@ partial class Program
 
             // Bottom Save Configuration Button
             Button btnSave = new Button();
-            btnSave.Text = "Save & Close";
+            btnSave.Text = "Save && Close";
             btnSave.Font = new Font("Segoe UI", 10, FontStyle.Bold);
             btnSave.FlatStyle = FlatStyle.Flat;
             btnSave.FlatAppearance.BorderSize = 0;
