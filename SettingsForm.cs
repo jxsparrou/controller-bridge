@@ -21,6 +21,18 @@ partial class Program
         private TabPage pageSteam;
         private TabPage pageUwp;
 
+        // Tab 3 Controls (Add Custom Games)
+        private TextBox txtCustomName;
+        private TextBox txtCustomPath;
+        private TextBox txtCustomArgs;
+        private TextBox txtCustomWatch;
+        private ComboBox cmbCustomSisr;
+
+        // Tab 1 Per-Game SISR controls
+        private ComboBox cmbGameSisr;
+        private TextBox txtGameWatch;
+        private bool isUpdatingUi = false;
+
         // Tab 1 Controls (Steam Shortcuts)
         private ListView lstGames;
         private Label lblSteamStatus;
@@ -226,16 +238,59 @@ partial class Program
             lstGames.Columns.Add("Status", 140);
             pageSteam.Controls.Add(lstGames);
 
+            // Tab 1 Content: SISR Support label and ComboBox
+            Label lblGameSisr = new Label();
+            lblGameSisr.Text = "SISR Support:";
+            lblGameSisr.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblGameSisr.Location = new Point(15, 256);
+            lblGameSisr.Size = new Size(85, 20);
+            lblGameSisr.ForeColor = textLight;
+            pageSteam.Controls.Add(lblGameSisr);
+
+            cmbGameSisr = new ComboBox();
+            cmbGameSisr.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            cmbGameSisr.BackColor = bgInput;
+            cmbGameSisr.ForeColor = Color.White;
+            cmbGameSisr.FlatStyle = FlatStyle.Flat;
+            cmbGameSisr.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbGameSisr.Items.AddRange(new object[] { "Use Global Setting", "SISR Enabled", "SISR Disabled" });
+            cmbGameSisr.SelectedIndex = -1;
+            cmbGameSisr.Location = new Point(105, 252);
+            cmbGameSisr.Size = new Size(160, 23);
+            cmbGameSisr.Enabled = false;
+            cmbGameSisr.SelectedIndexChanged += cmbGameSisr_SelectedIndexChanged;
+            pageSteam.Controls.Add(cmbGameSisr);
+
+            // Tab 1 Content: Watch Process label and TextBox
+            Label lblGameWatch = new Label();
+            lblGameWatch.Text = "Watch Process:";
+            lblGameWatch.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblGameWatch.Location = new Point(280, 256);
+            lblGameWatch.Size = new Size(90, 20);
+            lblGameWatch.ForeColor = textLight;
+            pageSteam.Controls.Add(lblGameWatch);
+
+            txtGameWatch = new TextBox();
+            txtGameWatch.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            txtGameWatch.BackColor = bgInput;
+            txtGameWatch.ForeColor = Color.White;
+            txtGameWatch.BorderStyle = BorderStyle.FixedSingle;
+            txtGameWatch.Location = new Point(375, 252);
+            txtGameWatch.Size = new Size(145, 23);
+            txtGameWatch.Enabled = false;
+            txtGameWatch.TextChanged += txtGameWatch_TextChanged;
+            pageSteam.Controls.Add(txtGameWatch);
+
             // Tab 1 Content: Action Buttons
             btnRemoveSelected = new Button();
-            btnRemoveSelected.Text = "Remove from Steam";
+            btnRemoveSelected.Text = "Remove Selected";
             btnRemoveSelected.Font = new Font("Segoe UI", 9, FontStyle.Bold);
             btnRemoveSelected.FlatStyle = FlatStyle.Flat;
             btnRemoveSelected.FlatAppearance.BorderSize = 0;
             btnRemoveSelected.BackColor = accentRed;
             btnRemoveSelected.ForeColor = Color.White;
-            btnRemoveSelected.Location = new Point(15, 255);
-            btnRemoveSelected.Size = new Size(300, 30);
+            btnRemoveSelected.Location = new Point(105, 285);
+            btnRemoveSelected.Size = new Size(415, 30);
             btnRemoveSelected.Click += (s, e) => RemoveSelectedShortcuts();
             pageSteam.Controls.Add(btnRemoveSelected);
 
@@ -246,10 +301,12 @@ partial class Program
             btnRefresh.FlatAppearance.BorderSize = 0;
             btnRefresh.BackColor = Color.FromArgb(60, 60, 64);
             btnRefresh.ForeColor = Color.White;
-            btnRefresh.Location = new Point(540, 255);
-            btnRefresh.Size = new Size(70, 30);
+            btnRefresh.Location = new Point(540, 252);
+            btnRefresh.Size = new Size(70, 25);
             btnRefresh.Click += (s, e) => RefreshShortcutsList();
             pageSteam.Controls.Add(btnRefresh);
+
+            lstGames.SelectedIndexChanged += lstGames_SelectedIndexChanged;
 
             // Tab 2: Add UWP Games
             pageUwp = new TabPage("Add UWP Games");
@@ -306,6 +363,137 @@ partial class Program
             btnAddSelected.Size = new Size(300, 30);
             btnAddSelected.Click += (s, e) => AddSelectedToSteam();
             pageUwp.Controls.Add(btnAddSelected);
+
+            // Tab 3: Add Custom Game
+            TabPage pageCustom = new TabPage("Add Custom Game");
+            pageCustom.BackColor = bgPanel;
+            tabControl.TabPages.Add(pageCustom);
+
+            Label lblCustomTitle = new Label();
+            lblCustomTitle.Text = "Add a Custom Non-UWP Game to Steam";
+            lblCustomTitle.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            lblCustomTitle.ForeColor = textLight;
+            lblCustomTitle.Location = new Point(15, 15);
+            lblCustomTitle.Size = new Size(595, 20);
+            pageCustom.Controls.Add(lblCustomTitle);
+
+            // Game Name
+            Label lblCustomName = new Label();
+            lblCustomName.Text = "Game Name:";
+            lblCustomName.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblCustomName.Location = new Point(15, 50);
+            lblCustomName.Size = new Size(120, 20);
+            lblCustomName.ForeColor = textLight;
+            pageCustom.Controls.Add(lblCustomName);
+
+            txtCustomName = new TextBox();
+            txtCustomName.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            txtCustomName.BackColor = bgInput;
+            txtCustomName.ForeColor = Color.White;
+            txtCustomName.BorderStyle = BorderStyle.FixedSingle;
+            txtCustomName.Location = new Point(150, 47);
+            txtCustomName.Size = new Size(450, 23);
+            pageCustom.Controls.Add(txtCustomName);
+
+            // Executable Path
+            Label lblCustomPath = new Label();
+            lblCustomPath.Text = "Executable Path:";
+            lblCustomPath.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblCustomPath.Location = new Point(15, 90);
+            lblCustomPath.Size = new Size(120, 20);
+            lblCustomPath.ForeColor = textLight;
+            pageCustom.Controls.Add(lblCustomPath);
+
+            txtCustomPath = new TextBox();
+            txtCustomPath.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            txtCustomPath.BackColor = bgInput;
+            txtCustomPath.ForeColor = Color.White;
+            txtCustomPath.BorderStyle = BorderStyle.FixedSingle;
+            txtCustomPath.Location = new Point(150, 87);
+            txtCustomPath.Size = new Size(340, 23);
+            pageCustom.Controls.Add(txtCustomPath);
+
+            Button btnBrowseCustom = new Button();
+            btnBrowseCustom.Text = "Browse...";
+            btnBrowseCustom.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnBrowseCustom.FlatStyle = FlatStyle.Flat;
+            btnBrowseCustom.FlatAppearance.BorderSize = 0;
+            btnBrowseCustom.BackColor = Color.FromArgb(60, 60, 64);
+            btnBrowseCustom.ForeColor = Color.White;
+            btnBrowseCustom.Location = new Point(500, 86);
+            btnBrowseCustom.Size = new Size(100, 25);
+            btnBrowseCustom.Click += (s, e) => BrowseCustomGame();
+            pageCustom.Controls.Add(btnBrowseCustom);
+
+            // Launch Arguments
+            Label lblCustomArgs = new Label();
+            lblCustomArgs.Text = "Launch Arguments:";
+            lblCustomArgs.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblCustomArgs.Location = new Point(15, 130);
+            lblCustomArgs.Size = new Size(120, 20);
+            lblCustomArgs.ForeColor = textLight;
+            pageCustom.Controls.Add(lblCustomArgs);
+
+            txtCustomArgs = new TextBox();
+            txtCustomArgs.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            txtCustomArgs.BackColor = bgInput;
+            txtCustomArgs.ForeColor = Color.White;
+            txtCustomArgs.BorderStyle = BorderStyle.FixedSingle;
+            txtCustomArgs.Location = new Point(150, 127);
+            txtCustomArgs.Size = new Size(450, 23);
+            pageCustom.Controls.Add(txtCustomArgs);
+
+            // Watch Process
+            Label lblCustomWatch = new Label();
+            lblCustomWatch.Text = "Watch Process:";
+            lblCustomWatch.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblCustomWatch.Location = new Point(15, 170);
+            lblCustomWatch.Size = new Size(120, 20);
+            lblCustomWatch.ForeColor = textLight;
+            pageCustom.Controls.Add(lblCustomWatch);
+
+            txtCustomWatch = new TextBox();
+            txtCustomWatch.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            txtCustomWatch.BackColor = bgInput;
+            txtCustomWatch.ForeColor = Color.White;
+            txtCustomWatch.BorderStyle = BorderStyle.FixedSingle;
+            txtCustomWatch.Location = new Point(150, 167);
+            txtCustomWatch.Size = new Size(450, 23);
+            pageCustom.Controls.Add(txtCustomWatch);
+
+            // SISR Setting
+            Label lblCustomSisr = new Label();
+            lblCustomSisr.Text = "SISR Support:";
+            lblCustomSisr.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblCustomSisr.Location = new Point(15, 210);
+            lblCustomSisr.Size = new Size(120, 20);
+            lblCustomSisr.ForeColor = textLight;
+            pageCustom.Controls.Add(lblCustomSisr);
+
+            cmbCustomSisr = new ComboBox();
+            cmbCustomSisr.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            cmbCustomSisr.BackColor = bgInput;
+            cmbCustomSisr.ForeColor = Color.White;
+            cmbCustomSisr.FlatStyle = FlatStyle.Flat;
+            cmbCustomSisr.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbCustomSisr.Items.AddRange(new object[] { "Use Global Setting", "SISR Enabled", "SISR Disabled" });
+            cmbCustomSisr.SelectedIndex = 0;
+            cmbCustomSisr.Location = new Point(150, 207);
+            cmbCustomSisr.Size = new Size(200, 23);
+            pageCustom.Controls.Add(cmbCustomSisr);
+
+            // Add Button
+            Button btnAddCustom = new Button();
+            btnAddCustom.Text = "Add Custom Game to Steam";
+            btnAddCustom.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            btnAddCustom.FlatStyle = FlatStyle.Flat;
+            btnAddCustom.FlatAppearance.BorderSize = 0;
+            btnAddCustom.BackColor = accentGreen;
+            btnAddCustom.ForeColor = Color.White;
+            btnAddCustom.Location = new Point(150, 250);
+            btnAddCustom.Size = new Size(450, 35);
+            btnAddCustom.Click += (s, e) => AddCustomGameToSteam();
+            pageCustom.Controls.Add(btnAddCustom);
 
             // Bottom Save Configuration Button
             Button btnSave = new Button();
@@ -438,25 +626,58 @@ partial class Program
             {
                 string trimmedExe = item.Exe.Replace("\"", "").Trim();
                 bool isUWPHook = trimmedExe.EndsWith("UWPHook.exe", StringComparison.OrdinalIgnoreCase);
-                bool isBridge = trimmedExe.EndsWith("uwphook-bridge.exe", StringComparison.OrdinalIgnoreCase);
+                bool isBridge = trimmedExe.EndsWith("uwphook-bridge.exe", StringComparison.OrdinalIgnoreCase) || 
+                                trimmedExe.EndsWith("sBridge.exe", StringComparison.OrdinalIgnoreCase) ||
+                                trimmedExe.Equals(myExe, StringComparison.OrdinalIgnoreCase);
                 bool hasAumidPattern = !string.IsNullOrEmpty(item.LaunchOptions) && item.LaunchOptions.Contains("_") && item.LaunchOptions.Contains("!");
 
                 // Show UWP/UWPHook games or bridged ones
                 if (isUWPHook || isBridge || hasAumidPattern)
                 {
                     ListViewItem lvItem = new ListViewItem(item.AppName);
-                    lvItem.SubItems.Add(Path.GetFileName(trimmedExe));
+                    
+                    string targetStr = "";
+                    if (isBridge && !string.IsNullOrEmpty(item.LaunchOptions))
+                    {
+                        targetStr = Program.ParseFirstArgument(item.LaunchOptions);
+                    }
+                    else
+                    {
+                        targetStr = Path.GetFileName(trimmedExe);
+                    }
+                    lvItem.SubItems.Add(targetStr);
                     
                     string statusStr = "Direct UWP";
-                    if (isBridge) statusStr = "SISR-Enabled";
-                    else if (isUWPHook) statusStr = "Via UWPHook (migrate)";
+                    if (isBridge)
+                    {
+                        string gameId = Program.ParseFirstArgument(item.LaunchOptions);
+                        bool gameSisr = Program.sisrEnabled;
+                        bool overrideVal;
+                        if (!string.IsNullOrEmpty(gameId) && Program.perGameSisr.TryGetValue(gameId, out overrideVal))
+                        {
+                            gameSisr = overrideVal;
+                        }
+                        statusStr = gameSisr ? "SISR Enabled" : "SISR Disabled";
+                    }
+                    else if (isUWPHook)
+                    {
+                        statusStr = "Via UWPHook (migrate)";
+                    }
 
                     lvItem.SubItems.Add(statusStr);
                     lvItem.Tag = item;
-                    lvItem.Checked = isBridge;
+                    lvItem.Checked = false; // Kept unchecked to avoid accidental removal
                     lstGames.Items.Add(lvItem);
                 }
             }
+            
+            // Clear selection and disable ComboBox / TextBox
+            isUpdatingUi = true;
+            cmbGameSisr.SelectedIndex = -1;
+            cmbGameSisr.Enabled = false;
+            txtGameWatch.Text = "";
+            txtGameWatch.Enabled = false;
+            isUpdatingUi = false;
             
             if (lstGames.Items.Count == 0)
             {
@@ -719,6 +940,274 @@ partial class Program
             {
                 MessageBox.Show("No new apps were selected to add.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
+
+            RefreshShortcutsList();
+        }
+
+        private void lstGames_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (lstGames.SelectedItems.Count == 0)
+            {
+                isUpdatingUi = true;
+                cmbGameSisr.SelectedIndex = -1;
+                cmbGameSisr.Enabled = false;
+                txtGameWatch.Text = "";
+                txtGameWatch.Enabled = false;
+                isUpdatingUi = false;
+                return;
+            }
+
+            var firstItem = lstGames.SelectedItems[0];
+            var shortcut = firstItem.Tag as SteamShortcutItem;
+            if (shortcut == null)
+            {
+                isUpdatingUi = true;
+                cmbGameSisr.SelectedIndex = -1;
+                cmbGameSisr.Enabled = false;
+                txtGameWatch.Text = "";
+                txtGameWatch.Enabled = false;
+                isUpdatingUi = false;
+                return;
+            }
+
+            string gameId = Program.ParseFirstArgument(shortcut.LaunchOptions);
+
+            isUpdatingUi = true;
+            cmbGameSisr.Enabled = true;
+            txtGameWatch.Enabled = true;
+
+            if (string.IsNullOrEmpty(gameId))
+            {
+                cmbGameSisr.SelectedIndex = 0; // Use Global
+                txtGameWatch.Text = "";
+            }
+            else
+            {
+                bool overrideVal;
+                if (Program.perGameSisr.TryGetValue(gameId, out overrideVal))
+                {
+                    cmbGameSisr.SelectedIndex = overrideVal ? 1 : 2;
+                }
+                else
+                {
+                    cmbGameSisr.SelectedIndex = 0; // Use Global
+                }
+
+                string watchVal;
+                if (Program.perGameWatch.TryGetValue(gameId, out watchVal))
+                {
+                    txtGameWatch.Text = watchVal;
+                }
+                else
+                {
+                    txtGameWatch.Text = "";
+                }
+            }
+            isUpdatingUi = false;
+        }
+
+        private void txtGameWatch_TextChanged(object sender, EventArgs e)
+        {
+            if (isUpdatingUi) return;
+            if (lstGames.SelectedItems.Count == 0) return;
+
+            foreach (ListViewItem lvItem in lstGames.SelectedItems)
+            {
+                var shortcut = lvItem.Tag as SteamShortcutItem;
+                if (shortcut == null) continue;
+
+                string gameId = Program.ParseFirstArgument(shortcut.LaunchOptions);
+                if (string.IsNullOrEmpty(gameId)) continue;
+
+                string val = txtGameWatch.Text.Trim();
+                if (string.IsNullOrEmpty(val))
+                {
+                    if (Program.perGameWatch.ContainsKey(gameId))
+                    {
+                        Program.perGameWatch.Remove(gameId);
+                    }
+                }
+                else
+                {
+                    Program.perGameWatch[gameId] = val;
+                }
+            }
+
+            SavePaths();
+        }
+
+        private void cmbGameSisr_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (isUpdatingUi) return;
+            if (lstGames.SelectedItems.Count == 0) return;
+
+            foreach (ListViewItem lvItem in lstGames.SelectedItems)
+            {
+                var shortcut = lvItem.Tag as SteamShortcutItem;
+                if (shortcut == null) continue;
+
+                string gameId = Program.ParseFirstArgument(shortcut.LaunchOptions);
+                if (string.IsNullOrEmpty(gameId)) continue;
+
+                int sel = cmbGameSisr.SelectedIndex;
+                if (sel == 1) // SISR Enabled
+                {
+                    Program.perGameSisr[gameId] = true;
+                }
+                else if (sel == 2) // SISR Disabled
+                {
+                    Program.perGameSisr[gameId] = false;
+                }
+                else // Use Global
+                {
+                    if (Program.perGameSisr.ContainsKey(gameId))
+                    {
+                        Program.perGameSisr.Remove(gameId);
+                    }
+                }
+
+                bool gameSisr = Program.sisrEnabled;
+                bool overrideVal;
+                if (Program.perGameSisr.TryGetValue(gameId, out overrideVal))
+                {
+                    gameSisr = overrideVal;
+                }
+                lvItem.SubItems[2].Text = gameSisr ? "SISR Enabled" : "SISR Disabled";
+            }
+
+            SavePaths();
+        }
+
+        private void BrowseCustomGame()
+        {
+            using (OpenFileDialog ofd = new OpenFileDialog())
+            {
+                ofd.Filter = "Executables (*.exe)|*.exe|All Files (*.*)|*.*";
+                ofd.Title = "Select Game Executable";
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    txtCustomPath.Text = ofd.FileName;
+                    if (string.IsNullOrEmpty(txtCustomName.Text.Trim()))
+                    {
+                        try
+                        {
+                            txtCustomName.Text = Path.GetFileNameWithoutExtension(ofd.FileName);
+                        }
+                        catch {}
+                    }
+                }
+            }
+        }
+
+        private void AddCustomGameToSteam()
+        {
+            string appName = txtCustomName.Text.Trim();
+            string gamePath = txtCustomPath.Text.Trim();
+            string gameArgs = txtCustomArgs.Text.Trim();
+            string watchName = txtCustomWatch.Text.Trim();
+
+            if (string.IsNullOrEmpty(appName))
+            {
+                MessageBox.Show("Please enter a game name.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(gamePath) || !File.Exists(gamePath))
+            {
+                MessageBox.Show("Please enter a valid executable path.", "Validation Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            bool steamRunning = Process.GetProcessesByName("steam").Length > 0;
+            if (steamRunning)
+            {
+                MessageBox.Show(
+                    "Steam is currently running. Please close Steam before adding shortcuts.",
+                    "Steam is Running", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var vdfFiles = Program.FindShortcutsVdfFiles();
+            if (vdfFiles.Count == 0)
+            {
+                MessageBox.Show(
+                    "Could not find Steam's shortcuts.vdf file. Make sure Steam has been run at least once.",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            string vdfPath = vdfFiles[0];
+
+            VdfElement root;
+            try
+            {
+                byte[] bytes = File.ReadAllBytes(vdfPath);
+                using (var ms = new MemoryStream(bytes))
+                using (var reader = new BinaryReader(ms))
+                {
+                    byte firstByte = reader.ReadByte();
+                    string rootName = Program.ReadNullTerminatedString(reader);
+                    root = Program.ReadMap(reader, rootName);
+                }
+            }
+            catch (Exception ex)
+            {
+                root = new VdfElement { Type = 0x00, Name = "shortcuts" };
+                Program.Log("Creating new shortcuts.vdf structure: " + ex.Message);
+            }
+
+            string unquotedPath = gamePath;
+            int sisrSel = cmbCustomSisr.SelectedIndex;
+            if (sisrSel == 1) // Enabled
+            {
+                Program.perGameSisr[unquotedPath] = true;
+            }
+            else if (sisrSel == 2) // Disabled
+            {
+                Program.perGameSisr[unquotedPath] = false;
+            }
+            else // Use Global
+            {
+                if (Program.perGameSisr.ContainsKey(unquotedPath))
+                {
+                    Program.perGameSisr.Remove(unquotedPath);
+                }
+            }
+
+            if (!string.IsNullOrEmpty(watchName))
+            {
+                Program.perGameWatch[unquotedPath] = watchName;
+            }
+            else
+            {
+                if (Program.perGameWatch.ContainsKey(unquotedPath))
+                {
+                    Program.perGameWatch.Remove(unquotedPath);
+                }
+            }
+
+            SavePaths();
+
+            string quotedPath = gamePath;
+            if (!quotedPath.StartsWith("\""))
+            {
+                quotedPath = "\"" + quotedPath + "\"";
+            }
+
+            Program.AddShortcutToSteam(vdfPath, root, appName, quotedPath, gameArgs);
+
+            var dummyItem = new SteamShortcutItem { VdfPath = vdfPath, RootElement = root };
+            Program.SaveSteamShortcuts(new List<SteamShortcutItem> { dummyItem });
+
+            MessageBox.Show(
+                string.Format("Successfully added '{0}' to Steam!\n\nRestart Steam to see it in your library.", appName),
+                "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            txtCustomName.Text = "";
+            txtCustomPath.Text = "";
+            txtCustomArgs.Text = "";
+            txtCustomWatch.Text = "";
+            cmbCustomSisr.SelectedIndex = 0;
 
             RefreshShortcutsList();
         }

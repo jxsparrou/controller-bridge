@@ -96,15 +96,47 @@ partial class Program
     }
 
     // ==========================================
+    // Custom Game Launcher Method
+    // ==========================================
+
+    /// <summary>
+    /// Launches a custom non-UWP game by its executable path.
+    /// Returns the process ID of the launched app.
+    /// </summary>
+    static int LaunchCustomGame(string exePath, string extraArgs)
+    {
+        Log("Launching custom game: Path=" + exePath + ", Args=" + extraArgs);
+        try
+        {
+            ProcessStartInfo psi = new ProcessStartInfo(exePath, extraArgs);
+            psi.WorkingDirectory = Path.GetDirectoryName(exePath);
+            psi.UseShellExecute = true; // Support UAC elevation if needed
+            Process proc = Process.Start(psi);
+            if (proc != null)
+            {
+                Log("Custom game launched with PID: " + proc.Id);
+                return proc.Id;
+            }
+            return 0;
+        }
+        catch (Exception e)
+        {
+            string msg = "Failed to launch custom game: " + e.Message;
+            Log(msg);
+            throw new Exception(msg, e);
+        }
+    }
+
+    // ==========================================
     // Process Monitoring Method
     // ==========================================
 
     /// <summary>
-    /// Waits for the UWP app to exit by polling its process ID.
+    /// Waits for the game to exit by polling its process ID.
     /// If the initial PID exits early, attempts to find a replacement process
-    /// (handles launcher-style UWP apps that spawn a separate game process).
+    /// (handles launcher-style apps that spawn a separate game process).
     /// </summary>
-    static void WaitForUWPAppExit(int processId, string executableHint)
+    static void WaitForGameExit(int processId, string executableHint)
     {
         const int pollIntervalMs = 3000;
         const int launcherGracePeriodMs = 120000; // 2 minutes
@@ -166,9 +198,9 @@ partial class Program
                 }
                 catch { }
 
-                // Search for a process matching the executable name with retries (up to 5 attempts, 15 seconds total)
+                // Search for a process matching the executable name with retries (up to 45 attempts, 90 seconds total)
                 int replacementPid = 0;
-                int retries = 5;
+                int retries = 45;
                 while (retries > 0)
                 {
                     try
@@ -188,8 +220,8 @@ partial class Program
 
                     if (retries > 1)
                     {
-                        Log("No replacement process found yet. Retrying in 3 seconds... (Attempts remaining: " + (retries - 1) + ")");
-                        System.Threading.Thread.Sleep(3000);
+                        Log("No replacement process found yet. Retrying in 2 seconds... (Attempts remaining: " + (retries - 1) + ")");
+                        System.Threading.Thread.Sleep(2000);
                     }
                     retries--;
                 }

@@ -263,7 +263,7 @@ partial class Program
         shortcut.Children.Add(new VdfElement { Type = 0x01, Name = "ShortcutPath", StringValue = "" });
 
         // LaunchOptions — AUMID followed by executable (UWPHook-compatible format)
-        string launchOptions = aumid + " " + executable;
+        string launchOptions = string.IsNullOrEmpty(executable) ? aumid : aumid + " " + executable;
         shortcut.Children.Add(new VdfElement { Type = 0x01, Name = "LaunchOptions", StringValue = launchOptions });
 
         // IsHidden = 0

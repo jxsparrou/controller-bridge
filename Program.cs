@@ -32,6 +32,8 @@ partial class Program
     static bool logEnabled = true;
     public static bool sisrEnabled = true;
     public static string sgdbApiKey = "";
+    public static Dictionary<string, bool> perGameSisr = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+    public static Dictionary<string, string> perGameWatch = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     [STAThread]
     static void Main(string[] args)
@@ -48,26 +50,58 @@ partial class Program
                 return;
             }
 
-            // Parse arguments: args[0] = AUMID, args[1] = executable (optional), args[2+] = extra args
+            // Parse arguments: args[0] = AUMID or game path, args[1+] = executable/extra args
             string aumid = args[0];
-            string executableHint = args.Length > 1 ? args[1] : "";
+            
+            // Fix forward slashes (UWPHook convention)
+            if (!string.IsNullOrEmpty(aumid) && aumid.Contains("/"))
+            {
+                aumid = aumid.Replace('/', '\\');
+            }
+
+            bool isCustomGame = File.Exists(aumid) || aumid.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || aumid.Contains("\\");
+            string executableHint = "";
             string extraArgs = "";
-            if (args.Length > 2)
+
+            string watchOverride;
+            bool hasWatchOverride = perGameWatch.TryGetValue(aumid, out watchOverride) && !string.IsNullOrEmpty(watchOverride);
+
+            if (isCustomGame)
             {
-                string[] extraParts = new string[args.Length - 2];
-                Array.Copy(args, 2, extraParts, 0, args.Length - 2);
-                extraArgs = string.Join(" ", extraParts);
+                executableHint = hasWatchOverride ? watchOverride : aumid;
+                if (args.Length > 1)
+                {
+                    string[] extraParts = new string[args.Length - 1];
+                    Array.Copy(args, 1, extraParts, 0, args.Length - 1);
+                    extraArgs = string.Join(" ", extraParts);
+                }
+            }
+            else
+            {
+                executableHint = hasWatchOverride ? watchOverride : (args.Length > 1 ? args[1] : "");
+                if (args.Length > 2)
+                {
+                    string[] extraParts = new string[args.Length - 2];
+                    Array.Copy(args, 2, extraParts, 0, args.Length - 2);
+                    extraArgs = string.Join(" ", extraParts);
+                }
+                if (!hasWatchOverride && !string.IsNullOrEmpty(executableHint) && executableHint.Contains("/"))
+                {
+                    executableHint = executableHint.Replace('/', '\\');
+                }
             }
 
-            // Fix forward slashes in executable hint (UWPHook convention)
-            if (!string.IsNullOrEmpty(executableHint) && executableHint.Contains("/"))
+            // Determine if SISR should be run for this specific game
+            bool runSisr = sisrEnabled;
+            bool overrideVal;
+            if (perGameSisr.TryGetValue(aumid, out overrideVal))
             {
-                executableHint = executableHint.Replace('/', '\\');
+                runSisr = overrideVal;
             }
 
-            Log(string.Format("Bridge started: AUMID={0}, Executable={1}, ExtraArgs={2}, SISR={3}", aumid, executableHint, extraArgs, sisrEnabled));
+            Log(string.Format("Bridge started: Path/AUMID={0}, ExecutableHint={1}, ExtraArgs={2}, CustomGame={3}, SISR={4}", aumid, executableHint, extraArgs, isCustomGame, runSisr));
 
-            if (sisrEnabled)
+            if (runSisr)
             {
                 // Validate SISR path
                 if (!File.Exists(sisrPath))
@@ -89,13 +123,21 @@ partial class Program
                 Process.Start(sisrInfo);
             }
 
-            // Launch UWP app directly via COM
-            int gamePid = LaunchUWPApp(aumid, extraArgs);
+            int gamePid = 0;
+            if (isCustomGame)
+            {
+                gamePid = LaunchCustomGame(aumid, extraArgs);
+            }
+            else
+            {
+                // Launch UWP app directly via COM
+                gamePid = LaunchUWPApp(aumid, extraArgs);
+            }
 
             // Wait for the game to exit
-            WaitForUWPAppExit(gamePid, executableHint);
+            WaitForGameExit(gamePid, executableHint);
 
-            if (sisrEnabled)
+            if (runSisr)
             {
                 // Terminate SISR and VIIPER
                 Log("Terminating SISR and VIIPER...");
@@ -160,6 +202,8 @@ partial class Program
         logEnabled = true;
         sisrEnabled = true;
         sgdbApiKey = "";
+        perGameSisr.Clear();
+        perGameWatch.Clear();
 
         if (File.Exists(configPath))
         {
@@ -197,6 +241,20 @@ partial class Program
                         {
                             sgdbApiKey = val;
                         }
+                        else if (key.StartsWith("Sisr_", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string gameId = key.Substring(5).Trim();
+                            bool enabled;
+                            if (bool.TryParse(val, out enabled))
+                            {
+                                perGameSisr[gameId] = enabled;
+                            }
+                        }
+                        else if (key.StartsWith("Watch_", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string gameId = key.Substring(6).Trim();
+                            perGameWatch[gameId] = val;
+                        }
                     }
                 }
             }
@@ -226,6 +284,18 @@ partial class Program
                 sw.WriteLine("SisrEnabled=" + sisrEnabled.ToString().ToLower());
                 sw.WriteLine("SgdbApiKey=" + sgdbApiKey);
                 sw.WriteLine("LogEnabled=" + logEnabled.ToString().ToLower());
+                sw.WriteLine();
+                sw.WriteLine("# Per-game SISR Settings");
+                foreach (var kvp in perGameSisr)
+                {
+                    sw.WriteLine(string.Format("Sisr_{0}={1}", kvp.Key, kvp.Value.ToString().ToLower()));
+                }
+                sw.WriteLine();
+                sw.WriteLine("# Per-game Watch Processes");
+                foreach (var kvp in perGameWatch)
+                {
+                    sw.WriteLine(string.Format("Watch_{0}={1}", kvp.Key, kvp.Value));
+                }
             }
         }
         catch
@@ -281,5 +351,25 @@ partial class Program
         {
             // Ignore logging errors
         }
+    }
+
+    public static string ParseFirstArgument(string launchOptions)
+    {
+        if (string.IsNullOrEmpty(launchOptions)) return "";
+        string trimmed = launchOptions.Trim();
+        if (trimmed.StartsWith("\""))
+        {
+            int nextQuote = trimmed.IndexOf('"', 1);
+            if (nextQuote > 0)
+            {
+                return trimmed.Substring(1, nextQuote - 1);
+            }
+        }
+        int spaceIdx = trimmed.IndexOf(' ');
+        if (spaceIdx > 0)
+        {
+            return trimmed.Substring(0, spaceIdx);
+        }
+        return trimmed;
     }
 }

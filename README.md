@@ -33,7 +33,10 @@ You just click "Play" in Steam and everything works.
 ## Features
 
 - **Built-in UWP App Scanner** — Fast scanning of all UWP/Game Pass games on your system, allowing you to add them directly to Steam.
-- **Settings Tabbed GUI** — A single, consolidated interface to manage existing shortcuts, scan and add new UWP games, and configure settings.
+- **Add Custom non-UWP Games** — Support importing standard `.exe` executables alongside UWP apps, allowing you to wrap any game to coordinate SISR automatically.
+- **Settings Tabbed GUI** — A single, consolidated interface to manage existing shortcuts, scan and add new UWP games, add custom games, and configure settings.
+- **Per-Game SISR Profiles** — Enable or disable SISR on a per-game basis directly in the UI instead of relying on a global toggle.
+- **Watch Process Name Overrides** — Easily override which process name to track, allowing the bridge to support games with complex launch chains, DRM launchers (like EA Desktop / Ubisoft Connect), and slow-loading anti-cheat clients.
 - **SteamGridDB Artwork Integration** — Automatically downloads grids, heroes, logos, and list icons from SteamGridDB on import when an API key is configured.
 - **One-Click UWPHook Migration** — Effortlessly migrate existing UWPHook shortcuts to use the bridge with a single click.
 - **Optional SISR Integration** — Toggle SISR controller redirection on or off. With SISR disabled, the bridge functions as a standalone, lightweight UWP launcher (a pure UWPHook replacement).
@@ -58,9 +61,10 @@ Double-click `sBridge.exe` (with no arguments).
 ### Step 3: Manage Your Games
 > **Note:** Steam must be closed to edit shortcuts. The GUI will prompt you to close it.
 
-- **To Add Games:** Go to **Add UWP Games** tab, click **Scan for UWP Apps**, select your games, and click **Add Selected to Steam**.
+- **To Add UWP Games:** Go to **Add UWP Games** tab, click **Scan for UWP Apps**, select your games, and click **Add Selected to Steam**.
+- **To Add Custom Games:** Go to **Add Custom Game** tab, fill out the game details, select the executable, and click **Add Custom Game to Steam**.
 - **To Migrate Old Games:** Click **Migrate From UWPHook** in the path configurations panel to convert old UWPHook shortcuts automatically.
-- **To Remove Games:** Go to **Steam Shortcuts** tab, select your games, and click **Remove from Steam**.
+- **To Remove Games:** Go to **Steam Shortcuts** tab, select your games, and click **Remove Selected**.
 
 Restart Steam and play!
 
@@ -74,7 +78,11 @@ powershell.exe -ExecutionPolicy Bypass -File .\build.ps1
 
 ### v0.3.0
 - **UWPHook-like Functionality**: Added native UWP launching via COM, completely removing the dependency on external launchers.
-- **Consolidated UI**: Reorganized layout into a single window with a tabbed interface.
+- **Add Custom Games**: Added support for standard `.exe` executables to easily wrap any PC game alongside UWP/Game Pass apps.
+- **Consolidated UI**: Reorganized layout into a single window with a tabbed interface containing shortcut lists, UWP scan tools, and custom game utilities.
+- **Per-Game SISR Settings**: Added the ability to enable/disable SISR support on a per-shortcut basis (Force Enable, Force Disable, or Global Default) inside the shortcut details panel.
+- **DRM Launcher & Watch Overrides**: Fixed issues launching games with complex start chains (e.g. EA App/Origin DRM for FC26) by introducing configurable Watch Process name overrides.
+- **Robust Process Search**: Extended the startup search timeout window to 90 seconds (polling every 2 seconds) to comfortably accommodate slow anti-cheat clients and DRM wrappers.
 - **SteamGridDB Integration**: Added background artwork downloader (portrait grids, heroes, logos, and PNG-converted icons).
 - **Standalone UWP Mode**: Added toggle for SISR redirection to run the bridge as a pure UWPHook replacement.
 - **One-Click Migration**: Added a button to automatically upgrade old UWPHook shortcuts to the bridge.
