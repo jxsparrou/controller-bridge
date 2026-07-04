@@ -107,7 +107,7 @@ partial class Program
     static void WaitForUWPAppExit(int processId, string executableHint)
     {
         const int pollIntervalMs = 3000;
-        const int launcherGracePeriodMs = 15000;
+        const int launcherGracePeriodMs = 120000; // 2 minutes
 
         if (processId == 0)
         {
@@ -149,7 +149,7 @@ partial class Program
 
             if (!foundReplacement && !string.IsNullOrEmpty(executableHint) && elapsedMs < launcherGracePeriodMs)
             {
-                Log("Initial process exited quickly (" + (int)elapsedMs + "ms). Searching for replacement process...");
+                Log("Initial process exited (" + (int)elapsedMs + "ms). Searching for replacement process...");
 
                 // Extract the executable name from the hint (e.g., "game.exe" from a path or name)
                 string exeName = executableHint;
@@ -166,20 +166,32 @@ partial class Program
                 }
                 catch { }
 
-                // Search for a process matching the executable name
+                // Search for a process matching the executable name with retries (up to 5 attempts, 15 seconds total)
                 int replacementPid = 0;
-                try
+                int retries = 5;
+                while (retries > 0)
                 {
-                    Process[] candidates = Process.GetProcessesByName(exeName);
-                    if (candidates.Length > 0)
+                    try
                     {
-                        replacementPid = candidates[0].Id;
-                        Log("Found replacement process: " + exeName + " PID=" + replacementPid);
+                        Process[] candidates = Process.GetProcessesByName(exeName);
+                        if (candidates.Length > 0)
+                        {
+                            replacementPid = candidates[0].Id;
+                            Log("Found replacement process: " + exeName + " PID=" + replacementPid);
+                            break;
+                        }
                     }
-                }
-                catch (Exception ex)
-                {
-                    Log("Error searching for replacement process: " + ex.Message);
+                    catch (Exception ex)
+                    {
+                        Log("Error searching for replacement process: " + ex.Message);
+                    }
+
+                    if (retries > 1)
+                    {
+                        Log("No replacement process found yet. Retrying in 3 seconds... (Attempts remaining: " + (retries - 1) + ")");
+                        System.Threading.Thread.Sleep(3000);
+                    }
+                    retries--;
                 }
 
                 if (replacementPid > 0)
@@ -190,24 +202,6 @@ partial class Program
                 }
                 else
                 {
-                    // No replacement found — wait a bit more before giving up
-                    Log("No replacement process found yet, will retry...");
-                    System.Threading.Thread.Sleep(3000);
-
-                    // Try one more time
-                    try
-                    {
-                        Process[] candidates2 = Process.GetProcessesByName(exeName);
-                        if (candidates2.Length > 0)
-                        {
-                            currentPid = candidates2[0].Id;
-                            foundReplacement = true;
-                            Log("Found replacement process on retry: " + exeName + " PID=" + currentPid);
-                            continue;
-                        }
-                    }
-                    catch { }
-
                     Log("No replacement process found. Assuming app has exited.");
                     break;
                 }
