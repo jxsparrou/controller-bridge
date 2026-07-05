@@ -307,18 +307,18 @@ partial class Program
     static void ShowUsage()
     {
         string message = string.Format(
-            "Controller Bridge (UWP Mode)\n" +
-            "=============================\n" +
-            "This program launches UWP games directly. When launched with a UWP App ID (AUMID), it optionally runs SISR in the background, starts the game, and cleans up when the game closes.\n\n" +
+            "Controller Bridge\n" +
+            "=================\n" +
+            "This program launches UWP or custom PC games. When launched with a UWP App ID (AUMID) or executable path, it optionally runs SISR in the background, starts the game, and cleans up when the game closes.\n\n" +
             "Usage:\n" +
-            "  sBridge.exe <AUMID> [executable_hint]\n\n" +
+            "  sBridge.exe <AUMID_or_Path> [executable_hint_or_arguments]\n\n" +
             "Config File:\n" +
             "  {0}\n\n" +
             "Current Paths:\n" +
             "  SISR.exe: {1} (Exists: {2}, Enabled: {3})\n\n" +
             "How to use in Steam:\n" +
-            "1. Use the Settings GUI to scan for UWP apps and add them to Steam.\n" +
-            "2. Alternatively, manually add a shortcut pointing to this 'sBridge.exe' file, passing the AUMID as an argument.\n\n" +
+            "1. Use the Settings GUI to scan for UWP apps or add custom games to Steam.\n" +
+            "2. Alternatively, manually add a shortcut pointing to this 'sBridge.exe' file, passing the AUMID or game path as an argument.\n\n" +
             "Click OK to open the configuration file folder.",
             configPath,
             sisrPath,

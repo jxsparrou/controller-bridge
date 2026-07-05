@@ -31,6 +31,9 @@ partial class Program
         // Tab 1 Per-Game SISR controls
         private ComboBox cmbGameSisr;
         private TextBox txtGameWatch;
+        private Label lblGameSisr;
+        private Label lblGameWatch;
+        private Label lblSelectPrompt;
         private bool isUpdatingUi = false;
 
         // Tab 1 Controls (Steam Shortcuts)
@@ -61,7 +64,7 @@ partial class Program
         public SettingsForm()
         {
             this.Text = "Controller Bridge Settings";
-            this.Size = new Size(680, 780);
+            this.Size = new Size(680, 540);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -84,114 +87,10 @@ partial class Program
             lblTitle.Size = new Size(400, 30);
             this.Controls.Add(lblTitle);
 
-            // GroupBox - Path Settings
-            GroupBox grpPaths = new GroupBox();
-            grpPaths.Text = "Path Configurations";
-            grpPaths.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            grpPaths.ForeColor = textLight;
-            grpPaths.BackColor = bgPanel;
-            grpPaths.Location = new Point(15, 50);
-            grpPaths.Size = new Size(635, 255);
-            this.Controls.Add(grpPaths);
-
-            // Inside grpPaths: Enable SISR checkbox
-            chkEnableSisr = new CheckBox();
-            chkEnableSisr.Text = "Enable SISR Controller Integration";
-            chkEnableSisr.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            chkEnableSisr.Location = new Point(15, 25);
-            chkEnableSisr.Size = new Size(300, 20);
-            chkEnableSisr.CheckedChanged += (s, e) => UpdateSisrStatus();
-            grpPaths.Controls.Add(chkEnableSisr);
-
-            // Inside grpPaths: SISR Path Label & TextBox
-            Label lblSisr = new Label();
-            lblSisr.Text = "SISR Path:";
-            lblSisr.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            lblSisr.Location = new Point(15, 55);
-            lblSisr.Size = new Size(100, 20);
-            grpPaths.Controls.Add(lblSisr);
-
-            txtSisr = new TextBox();
-            txtSisr.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            txtSisr.BackColor = bgInput;
-            txtSisr.ForeColor = Color.White;
-            txtSisr.BorderStyle = BorderStyle.FixedSingle;
-            txtSisr.Location = new Point(15, 75);
-            txtSisr.Size = new Size(490, 23);
-            txtSisr.TextChanged += (s, e) => UpdateSisrStatus();
-            grpPaths.Controls.Add(txtSisr);
-
-            btnBrowseSisr = new Button();
-            btnBrowseSisr.Text = "Browse...";
-            btnBrowseSisr.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            btnBrowseSisr.FlatStyle = FlatStyle.Flat;
-            btnBrowseSisr.FlatAppearance.BorderSize = 0;
-            btnBrowseSisr.BackColor = Color.FromArgb(60, 60, 64);
-            btnBrowseSisr.ForeColor = Color.White;
-            btnBrowseSisr.Location = new Point(515, 74);
-            btnBrowseSisr.Size = new Size(105, 25);
-            btnBrowseSisr.Click += (s, e) => BrowseSisr();
-            grpPaths.Controls.Add(btnBrowseSisr);
-
-            // SISR Arguments
-            Label lblSisrArgs = new Label();
-            lblSisrArgs.Text = "SISR Arguments (passed when launching SISR):";
-            lblSisrArgs.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            lblSisrArgs.Location = new Point(15, 105);
-            lblSisrArgs.Size = new Size(300, 20);
-            grpPaths.Controls.Add(lblSisrArgs);
-
-            txtSisrArgs = new TextBox();
-            txtSisrArgs.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            txtSisrArgs.BackColor = bgInput;
-            txtSisrArgs.ForeColor = Color.White;
-            txtSisrArgs.BorderStyle = BorderStyle.FixedSingle;
-            txtSisrArgs.Location = new Point(15, 125);
-            txtSisrArgs.Size = new Size(605, 23);
-            grpPaths.Controls.Add(txtSisrArgs);
-
-            // SteamGridDB API Key
-            Label lblSgdbKey = new Label();
-            lblSgdbKey.Text = "SteamGridDB API Key (optional, for game artwork):";
-            lblSgdbKey.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            lblSgdbKey.Location = new Point(15, 155);
-            lblSgdbKey.Size = new Size(300, 20);
-            grpPaths.Controls.Add(lblSgdbKey);
-
-            txtSgdbKey = new TextBox();
-            txtSgdbKey.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            txtSgdbKey.BackColor = bgInput;
-            txtSgdbKey.ForeColor = Color.White;
-            txtSgdbKey.BorderStyle = BorderStyle.FixedSingle;
-            txtSgdbKey.Location = new Point(15, 175);
-            txtSgdbKey.Size = new Size(605, 23);
-            grpPaths.Controls.Add(txtSgdbKey);
-
-            // Migrate Button
-            Button btnMigrate = new Button();
-            btnMigrate.Text = "Migrate From UWPHook";
-            btnMigrate.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            btnMigrate.FlatStyle = FlatStyle.Flat;
-            btnMigrate.FlatAppearance.BorderSize = 0;
-            btnMigrate.BackColor = Color.FromArgb(44, 44, 48);
-            btnMigrate.ForeColor = Color.White;
-            btnMigrate.Location = new Point(15, 210);
-            btnMigrate.Size = new Size(605, 30);
-            btnMigrate.Click += (s, e) => MigrateFromUwpHook();
-            grpPaths.Controls.Add(btnMigrate);
-
-            // Global SISR Warning Label
-            lblSisrWarning = new Label();
-            lblSisrWarning.Text = "Checking SISR status...";
-            lblSisrWarning.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            lblSisrWarning.Location = new Point(15, 310);
-            lblSisrWarning.Size = new Size(635, 20);
-            this.Controls.Add(lblSisrWarning);
-
             // Tab Control
             tabControl = new TabControl();
-            tabControl.Location = new Point(15, 335);
-            tabControl.Size = new Size(635, 335);
+            tabControl.Location = new Point(15, 50);
+            tabControl.Size = new Size(635, 380);
             tabControl.Font = new Font("Segoe UI", 9, FontStyle.Regular);
             this.Controls.Add(tabControl);
 
@@ -238,13 +137,23 @@ partial class Program
             lstGames.Columns.Add("Status", 140);
             pageSteam.Controls.Add(lstGames);
 
+            // Tab 1 Content: Selection Prompt Label
+            lblSelectPrompt = new Label();
+            lblSelectPrompt.Text = "Select a game above to configure per-game overrides.";
+            lblSelectPrompt.Font = new Font("Segoe UI", 9, FontStyle.Italic);
+            lblSelectPrompt.ForeColor = textMuted;
+            lblSelectPrompt.Location = new Point(15, 256);
+            lblSelectPrompt.Size = new Size(505, 23);
+            pageSteam.Controls.Add(lblSelectPrompt);
+
             // Tab 1 Content: SISR Support label and ComboBox
-            Label lblGameSisr = new Label();
+            lblGameSisr = new Label();
             lblGameSisr.Text = "SISR Support:";
             lblGameSisr.Font = new Font("Segoe UI", 9, FontStyle.Regular);
             lblGameSisr.Location = new Point(15, 256);
             lblGameSisr.Size = new Size(85, 20);
             lblGameSisr.ForeColor = textLight;
+            lblGameSisr.Visible = false;
             pageSteam.Controls.Add(lblGameSisr);
 
             cmbGameSisr = new ComboBox();
@@ -258,16 +167,18 @@ partial class Program
             cmbGameSisr.Location = new Point(105, 252);
             cmbGameSisr.Size = new Size(160, 23);
             cmbGameSisr.Enabled = false;
+            cmbGameSisr.Visible = false;
             cmbGameSisr.SelectedIndexChanged += cmbGameSisr_SelectedIndexChanged;
             pageSteam.Controls.Add(cmbGameSisr);
 
             // Tab 1 Content: Watch Process label and TextBox
-            Label lblGameWatch = new Label();
+            lblGameWatch = new Label();
             lblGameWatch.Text = "Watch Process:";
             lblGameWatch.Font = new Font("Segoe UI", 9, FontStyle.Regular);
             lblGameWatch.Location = new Point(280, 256);
             lblGameWatch.Size = new Size(90, 20);
             lblGameWatch.ForeColor = textLight;
+            lblGameWatch.Visible = false;
             pageSteam.Controls.Add(lblGameWatch);
 
             txtGameWatch = new TextBox();
@@ -278,10 +189,23 @@ partial class Program
             txtGameWatch.Location = new Point(375, 252);
             txtGameWatch.Size = new Size(145, 23);
             txtGameWatch.Enabled = false;
+            txtGameWatch.Visible = false;
             txtGameWatch.TextChanged += txtGameWatch_TextChanged;
             pageSteam.Controls.Add(txtGameWatch);
 
-            // Tab 1 Content: Action Buttons
+            // Tab 1 Content: Action Buttons (Row 2 - aligned at y=295)
+            Button btnMigrate = new Button();
+            btnMigrate.Text = "Migrate From UWPHook";
+            btnMigrate.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnMigrate.FlatStyle = FlatStyle.Flat;
+            btnMigrate.FlatAppearance.BorderSize = 0;
+            btnMigrate.BackColor = Color.FromArgb(44, 44, 48);
+            btnMigrate.ForeColor = Color.White;
+            btnMigrate.Location = new Point(15, 295);
+            btnMigrate.Size = new Size(170, 30);
+            btnMigrate.Click += (s, e) => MigrateFromUwpHook();
+            pageSteam.Controls.Add(btnMigrate);
+
             btnRemoveSelected = new Button();
             btnRemoveSelected.Text = "Remove Selected";
             btnRemoveSelected.Font = new Font("Segoe UI", 9, FontStyle.Bold);
@@ -289,8 +213,8 @@ partial class Program
             btnRemoveSelected.FlatAppearance.BorderSize = 0;
             btnRemoveSelected.BackColor = accentRed;
             btnRemoveSelected.ForeColor = Color.White;
-            btnRemoveSelected.Location = new Point(105, 285);
-            btnRemoveSelected.Size = new Size(415, 30);
+            btnRemoveSelected.Location = new Point(195, 295);
+            btnRemoveSelected.Size = new Size(325, 30);
             btnRemoveSelected.Click += (s, e) => RemoveSelectedShortcuts();
             pageSteam.Controls.Add(btnRemoveSelected);
 
@@ -301,8 +225,8 @@ partial class Program
             btnRefresh.FlatAppearance.BorderSize = 0;
             btnRefresh.BackColor = Color.FromArgb(60, 60, 64);
             btnRefresh.ForeColor = Color.White;
-            btnRefresh.Location = new Point(540, 252);
-            btnRefresh.Size = new Size(70, 25);
+            btnRefresh.Location = new Point(530, 295);
+            btnRefresh.Size = new Size(80, 30);
             btnRefresh.Click += (s, e) => RefreshShortcutsList();
             pageSteam.Controls.Add(btnRefresh);
 
@@ -495,18 +419,114 @@ partial class Program
             btnAddCustom.Click += (s, e) => AddCustomGameToSteam();
             pageCustom.Controls.Add(btnAddCustom);
 
-            // Bottom Save Configuration Button
-            Button btnSave = new Button();
-            btnSave.Text = "Save && Close";
-            btnSave.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            btnSave.FlatStyle = FlatStyle.Flat;
-            btnSave.FlatAppearance.BorderSize = 0;
-            btnSave.BackColor = accentBlue;
-            btnSave.ForeColor = Color.White;
-            btnSave.Location = new Point(15, 680);
-            btnSave.Size = new Size(635, 35);
-            btnSave.Click += (s, e) => SavePathsAndClose();
-            this.Controls.Add(btnSave);
+            // Tab 4: Global Settings
+            TabPage pageSettings = new TabPage("Global Settings");
+            pageSettings.BackColor = bgPanel;
+            tabControl.TabPages.Add(pageSettings);
+
+            // Global Settings Tab Content
+            chkEnableSisr = new CheckBox();
+            chkEnableSisr.Text = "Enable SISR Controller Integration";
+            chkEnableSisr.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            chkEnableSisr.Location = new Point(15, 15);
+            chkEnableSisr.Size = new Size(300, 20);
+            chkEnableSisr.ForeColor = textLight;
+            chkEnableSisr.CheckedChanged += (s, e) => {
+                UpdateSisrStatus();
+                SavePaths();
+            };
+            pageSettings.Controls.Add(chkEnableSisr);
+
+            // SISR Path Label & TextBox
+            Label lblSisr = new Label();
+            lblSisr.Text = "SISR Path:";
+            lblSisr.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblSisr.Location = new Point(15, 45);
+            lblSisr.Size = new Size(100, 20);
+            lblSisr.ForeColor = textLight;
+            pageSettings.Controls.Add(lblSisr);
+
+            txtSisr = new TextBox();
+            txtSisr.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            txtSisr.BackColor = bgInput;
+            txtSisr.ForeColor = Color.White;
+            txtSisr.BorderStyle = BorderStyle.FixedSingle;
+            txtSisr.Location = new Point(15, 65);
+            txtSisr.Size = new Size(490, 23);
+            txtSisr.TextChanged += (s, e) => UpdateSisrStatus();
+            txtSisr.Leave += (s, e) => SavePaths();
+            pageSettings.Controls.Add(txtSisr);
+
+            btnBrowseSisr = new Button();
+            btnBrowseSisr.Text = "Browse...";
+            btnBrowseSisr.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnBrowseSisr.FlatStyle = FlatStyle.Flat;
+            btnBrowseSisr.FlatAppearance.BorderSize = 0;
+            btnBrowseSisr.BackColor = Color.FromArgb(60, 60, 64);
+            btnBrowseSisr.ForeColor = Color.White;
+            btnBrowseSisr.Location = new Point(515, 64);
+            btnBrowseSisr.Size = new Size(105, 25);
+            btnBrowseSisr.Click += (s, e) => BrowseSisr();
+            pageSettings.Controls.Add(btnBrowseSisr);
+
+            // SISR Arguments
+            Label lblSisrArgs = new Label();
+            lblSisrArgs.Text = "SISR Arguments (passed when launching SISR):";
+            lblSisrArgs.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblSisrArgs.Location = new Point(15, 95);
+            lblSisrArgs.Size = new Size(300, 20);
+            lblSisrArgs.ForeColor = textLight;
+            pageSettings.Controls.Add(lblSisrArgs);
+
+            txtSisrArgs = new TextBox();
+            txtSisrArgs.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            txtSisrArgs.BackColor = bgInput;
+            txtSisrArgs.ForeColor = Color.White;
+            txtSisrArgs.BorderStyle = BorderStyle.FixedSingle;
+            txtSisrArgs.Location = new Point(15, 115);
+            txtSisrArgs.Size = new Size(605, 23);
+            txtSisrArgs.Leave += (s, e) => SavePaths();
+            pageSettings.Controls.Add(txtSisrArgs);
+
+            // SteamGridDB API Key
+            Label lblSgdbKey = new Label();
+            lblSgdbKey.Text = "SteamGridDB API Key (optional, for game artwork):";
+            lblSgdbKey.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblSgdbKey.Location = new Point(15, 145);
+            lblSgdbKey.Size = new Size(300, 20);
+            lblSgdbKey.ForeColor = textLight;
+            pageSettings.Controls.Add(lblSgdbKey);
+
+            txtSgdbKey = new TextBox();
+            txtSgdbKey.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            txtSgdbKey.BackColor = bgInput;
+            txtSgdbKey.ForeColor = Color.White;
+            txtSgdbKey.BorderStyle = BorderStyle.FixedSingle;
+            txtSgdbKey.Location = new Point(15, 165);
+            txtSgdbKey.Size = new Size(605, 23);
+            txtSgdbKey.Leave += (s, e) => SavePaths();
+            pageSettings.Controls.Add(txtSgdbKey);
+
+            // Global SISR Warning Label
+            lblSisrWarning = new Label();
+            lblSisrWarning.Text = "Checking SISR status...";
+            lblSisrWarning.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            lblSisrWarning.Location = new Point(15, 205);
+            lblSisrWarning.Size = new Size(605, 20);
+            pageSettings.Controls.Add(lblSisrWarning);
+
+            // Bottom Close Button
+            Button btnClose = new Button();
+            btnClose.Text = "Close";
+            btnClose.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            btnClose.FlatStyle = FlatStyle.Flat;
+            btnClose.FlatAppearance.BorderSize = 0;
+            btnClose.BackColor = Color.FromArgb(44, 44, 48);
+            btnClose.ForeColor = Color.White;
+            btnClose.Location = new Point(15, 445);
+            btnClose.Size = new Size(635, 35);
+            btnClose.Click += (s, e) => this.Close();
+            this.Controls.Add(btnClose);
         }
 
         private void UpdateSisrStatus()
@@ -571,6 +591,7 @@ partial class Program
                 {
                     txtSisr.Text = ofd.FileName;
                     UpdateSisrStatus();
+                    SavePaths();
                 }
             }
         }
@@ -664,19 +685,45 @@ partial class Program
                         statusStr = "Via UWPHook (migrate)";
                     }
 
-                    lvItem.SubItems.Add(statusStr);
+                    lvItem.UseItemStyleForSubItems = false;
+                    var subItem = lvItem.SubItems.Add(statusStr);
+                    if (isBridge)
+                    {
+                        string gameId = Program.ParseFirstArgument(item.LaunchOptions);
+                        bool gameSisr = Program.sisrEnabled;
+                        bool overrideVal;
+                        if (!string.IsNullOrEmpty(gameId) && Program.perGameSisr.TryGetValue(gameId, out overrideVal))
+                        {
+                            gameSisr = overrideVal;
+                        }
+                        subItem.ForeColor = gameSisr ? accentGreen : accentRed;
+                    }
+                    else if (isUWPHook)
+                    {
+                        subItem.ForeColor = Color.FromArgb(243, 156, 18);
+                    }
+                    else
+                    {
+                        subItem.ForeColor = textLight;
+                    }
+
                     lvItem.Tag = item;
                     lvItem.Checked = false; // Kept unchecked to avoid accidental removal
                     lstGames.Items.Add(lvItem);
                 }
             }
             
-            // Clear selection and disable ComboBox / TextBox
+            // Clear selection and disable/hide ComboBox / TextBox
             isUpdatingUi = true;
             cmbGameSisr.SelectedIndex = -1;
             cmbGameSisr.Enabled = false;
+            cmbGameSisr.Visible = false;
             txtGameWatch.Text = "";
             txtGameWatch.Enabled = false;
+            txtGameWatch.Visible = false;
+            lblGameSisr.Visible = false;
+            lblGameWatch.Visible = false;
+            lblSelectPrompt.Visible = true;
             isUpdatingUi = false;
             
             if (lstGames.Items.Count == 0)
@@ -951,8 +998,13 @@ partial class Program
                 isUpdatingUi = true;
                 cmbGameSisr.SelectedIndex = -1;
                 cmbGameSisr.Enabled = false;
+                cmbGameSisr.Visible = false;
                 txtGameWatch.Text = "";
                 txtGameWatch.Enabled = false;
+                txtGameWatch.Visible = false;
+                lblGameSisr.Visible = false;
+                lblGameWatch.Visible = false;
+                lblSelectPrompt.Visible = true;
                 isUpdatingUi = false;
                 return;
             }
@@ -964,8 +1016,13 @@ partial class Program
                 isUpdatingUi = true;
                 cmbGameSisr.SelectedIndex = -1;
                 cmbGameSisr.Enabled = false;
+                cmbGameSisr.Visible = false;
                 txtGameWatch.Text = "";
                 txtGameWatch.Enabled = false;
+                txtGameWatch.Visible = false;
+                lblGameSisr.Visible = false;
+                lblGameWatch.Visible = false;
+                lblSelectPrompt.Visible = true;
                 isUpdatingUi = false;
                 return;
             }
@@ -973,8 +1030,13 @@ partial class Program
             string gameId = Program.ParseFirstArgument(shortcut.LaunchOptions);
 
             isUpdatingUi = true;
+            lblSelectPrompt.Visible = false;
+            lblGameSisr.Visible = true;
             cmbGameSisr.Enabled = true;
+            cmbGameSisr.Visible = true;
+            lblGameWatch.Visible = true;
             txtGameWatch.Enabled = true;
+            txtGameWatch.Visible = true;
 
             if (string.IsNullOrEmpty(gameId))
             {
@@ -1073,6 +1135,7 @@ partial class Program
                     gameSisr = overrideVal;
                 }
                 lvItem.SubItems[2].Text = gameSisr ? "SISR Enabled" : "SISR Disabled";
+                lvItem.SubItems[2].ForeColor = gameSisr ? accentGreen : accentRed;
             }
 
             SavePaths();
