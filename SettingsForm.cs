@@ -41,6 +41,7 @@ partial class Program
         private Label lblSteamStatus;
         private Button btnCloseSteam;
         private Button btnRemoveSelected;
+        private Button btnToggleSisr;
 
         // Tab 2 Controls (Add UWP Games)
         private ListView lstApps;
@@ -194,6 +195,18 @@ partial class Program
             pageSteam.Controls.Add(txtGameWatch);
 
             // Tab 1 Content: Action Buttons (Row 2 - aligned at y=295)
+            btnToggleSisr = new Button();
+            btnToggleSisr.Text = "Toggle SISR";
+            btnToggleSisr.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnToggleSisr.FlatStyle = FlatStyle.Flat;
+            btnToggleSisr.FlatAppearance.BorderSize = 0;
+            btnToggleSisr.BackColor = accentBlue;
+            btnToggleSisr.ForeColor = Color.White;
+            btnToggleSisr.Location = new Point(15, 295);
+            btnToggleSisr.Size = new Size(185, 30);
+            btnToggleSisr.Click += (s, e) => ToggleSelectedSisr();
+            pageSteam.Controls.Add(btnToggleSisr);
+
             btnRemoveSelected = new Button();
             btnRemoveSelected.Text = "Remove Selected";
             btnRemoveSelected.Font = new Font("Segoe UI", 9, FontStyle.Bold);
@@ -201,8 +214,8 @@ partial class Program
             btnRemoveSelected.FlatAppearance.BorderSize = 0;
             btnRemoveSelected.BackColor = accentRed;
             btnRemoveSelected.ForeColor = Color.White;
-            btnRemoveSelected.Location = new Point(15, 295);
-            btnRemoveSelected.Size = new Size(495, 30);
+            btnRemoveSelected.Location = new Point(220, 295);
+            btnRemoveSelected.Size = new Size(185, 30);
             btnRemoveSelected.Click += (s, e) => RemoveSelectedShortcuts();
             pageSteam.Controls.Add(btnRemoveSelected);
 
@@ -213,8 +226,8 @@ partial class Program
             btnRefresh.FlatAppearance.BorderSize = 0;
             btnRefresh.BackColor = Color.FromArgb(60, 60, 64);
             btnRefresh.ForeColor = Color.White;
-            btnRefresh.Location = new Point(520, 295);
-            btnRefresh.Size = new Size(90, 30);
+            btnRefresh.Location = new Point(425, 295);
+            btnRefresh.Size = new Size(185, 30);
             btnRefresh.Click += (s, e) => RefreshShortcutsList();
             pageSteam.Controls.Add(btnRefresh);
 
@@ -812,6 +825,91 @@ partial class Program
             }
 
             RefreshShortcutsList();
+        }
+
+        private void ToggleSelectedSisr()
+        {
+            List<ListViewItem> targets = new List<ListViewItem>();
+            foreach (ListViewItem lvItem in lstGames.Items)
+            {
+                if (lvItem.Checked) targets.Add(lvItem);
+            }
+
+            if (targets.Count == 0)
+            {
+                foreach (ListViewItem lvItem in lstGames.SelectedItems)
+                {
+                    targets.Add(lvItem);
+                }
+            }
+
+            if (targets.Count == 0)
+            {
+                MessageBox.Show("Please select or check at least one game to toggle SISR support.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            isUpdatingUi = true;
+            foreach (ListViewItem lvItem in targets)
+            {
+                var shortcut = lvItem.Tag as SteamShortcutItem;
+                if (shortcut == null) continue;
+
+                string gameId = Program.ParseFirstArgument(shortcut.LaunchOptions);
+                if (string.IsNullOrEmpty(gameId)) continue;
+
+                bool overrideVal;
+                if (Program.perGameSisr.TryGetValue(gameId, out overrideVal))
+                {
+                    if (overrideVal)
+                    {
+                        Program.perGameSisr[gameId] = false;
+                    }
+                    else
+                    {
+                        Program.perGameSisr.Remove(gameId);
+                    }
+                }
+                else
+                {
+                    Program.perGameSisr[gameId] = true;
+                }
+
+                bool gameSisr = Program.sisrEnabled;
+                if (Program.perGameSisr.TryGetValue(gameId, out overrideVal))
+                {
+                    gameSisr = overrideVal;
+                }
+                lvItem.SubItems[2].Text = gameSisr ? "SISR Enabled" : "SISR Disabled";
+                lvItem.SubItems[2].ForeColor = gameSisr ? accentGreen : accentRed;
+            }
+            isUpdatingUi = false;
+
+            if (lstGames.SelectedItems.Count > 0)
+            {
+                var firstItem = lstGames.SelectedItems[0];
+                var shortcut = firstItem.Tag as SteamShortcutItem;
+                if (shortcut != null)
+                {
+                    string gameId = Program.ParseFirstArgument(shortcut.LaunchOptions);
+                    if (!string.IsNullOrEmpty(gameId))
+                    {
+                        isUpdatingUi = true;
+                        bool overrideVal;
+                        if (Program.perGameSisr.TryGetValue(gameId, out overrideVal))
+                        {
+                            cmbGameSisr.SelectedIndex = overrideVal ? 1 : 2;
+                        }
+                        else
+                        {
+                            cmbGameSisr.SelectedIndex = 0;
+                        }
+                        isUpdatingUi = false;
+                    }
+                }
+            }
+
+            SavePaths();
         }
 
         private void RemoveSelectedShortcuts()
