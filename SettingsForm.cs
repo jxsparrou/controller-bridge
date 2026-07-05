@@ -861,18 +861,11 @@ partial class Program
                 bool overrideVal;
                 if (Program.perGameSisr.TryGetValue(gameId, out overrideVal))
                 {
-                    if (overrideVal)
-                    {
-                        Program.perGameSisr[gameId] = false;
-                    }
-                    else
-                    {
-                        Program.perGameSisr.Remove(gameId);
-                    }
+                    Program.perGameSisr[gameId] = !overrideVal;
                 }
                 else
                 {
-                    Program.perGameSisr[gameId] = true;
+                    Program.perGameSisr[gameId] = !Program.sisrEnabled;
                 }
 
                 bool gameSisr = Program.sisrEnabled;
