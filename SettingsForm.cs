@@ -606,6 +606,12 @@ partial class Program
             this.Close();
         }
 
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            SavePaths();
+            base.OnFormClosing(e);
+        }
+
         private void BrowseSisr()
         {
             using (OpenFileDialog ofd = new OpenFileDialog())
