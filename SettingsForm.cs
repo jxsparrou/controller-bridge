@@ -72,6 +72,17 @@ partial class Program
             this.BackColor = bgDark;
             this.ForeColor = textLight;
 
+            try
+            {
+                string exeDir = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
+                string iconPath = Path.Combine(exeDir, "sBridge.ico");
+                if (File.Exists(iconPath))
+                {
+                    this.Icon = new Icon(iconPath);
+                }
+            }
+            catch {}
+
             InitializeComponents();
             LoadPaths();
             RefreshShortcutsList();
