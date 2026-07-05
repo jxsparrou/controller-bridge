@@ -1,8 +1,8 @@
-# Controller Bridge
+# sBridge
 
 **Play Xbox Game Pass and Windows Store games on Steam with full controller support — automatically.**
 
-Controller Bridge is a lightweight Windows utility that connects UWP games directly to Steam while coordinating [SISR](https://github.com/Alia5/SISR) (Steam Input System Redirector) in the background so you don't have to manage it manually.
+sBridge is a lightweight Windows utility that connects UWP games directly to Steam while coordinating [SISR](https://github.com/Alia5/SISR) (Steam Input System Redirector) in the background so you don't have to manage it manually.
 
 ## About This Project
 This is a personal hobby project created entirely using AI coding assistants to solve a specific problem I personally encountered. 

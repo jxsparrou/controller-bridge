@@ -276,7 +276,7 @@ partial class Program
         {
             using (StreamWriter sw = new StreamWriter(configPath))
             {
-                sw.WriteLine("# Controller Bridge Configuration");
+                sw.WriteLine("# sBridge Configuration");
                 sw.WriteLine("# Modify the paths below to match your installation");
                 sw.WriteLine();
                 sw.WriteLine("SisrPath=" + sisrPath);
@@ -326,7 +326,7 @@ partial class Program
             sisrEnabled ? "Yes" : "No"
         );
 
-        MessageBox.Show(message, "Controller Bridge Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageBox.Show(message, "sBridge Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
         try
         {

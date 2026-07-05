@@ -64,7 +64,7 @@ partial class Program
 
         public SettingsForm()
         {
-            this.Text = "Controller Bridge Settings";
+            this.Text = "sBridge Settings";
             this.Size = new Size(680, 540);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -81,7 +81,7 @@ partial class Program
         {
             // Title
             Label lblTitle = new Label();
-            lblTitle.Text = "Controller Bridge Settings";
+            lblTitle.Text = "sBridge Settings";
             lblTitle.Font = new Font("Segoe UI", 14, FontStyle.Bold);
             lblTitle.ForeColor = Color.White;
             lblTitle.Location = new Point(15, 15);
@@ -817,7 +817,7 @@ partial class Program
             if (count > 0)
             {
                 Program.SaveSteamShortcuts(modifiedItems);
-                MessageBox.Show(string.Format("Successfully migrated {0} shortcuts from UWPHook to Controller Bridge!", count), "Migration Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(string.Format("Successfully migrated {0} shortcuts from UWPHook to sBridge!", count), "Migration Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else
             {
