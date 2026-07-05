@@ -76,6 +76,16 @@ powershell.exe -ExecutionPolicy Bypass -File .\build.ps1
 
 ## Changelog
 
+### v0.4.0
+- **UI/UX Cleanup & Compact Window**: Reduced the settings form height from 780px to 540px to create a more compact, screen-friendly design.
+- **Global Settings Tab**: Restructured path configurations (SISR path, arguments, SteamGridDB API key) and status warnings into their own tab page, freeing up main window space.
+- **Toggle SISR Action**: Added a new equal-width action button row in the Shortcuts tab, featuring a "Toggle SISR" button that strictly toggles SISR support (Enabled/Disabled) on selected or checked items.
+- **Auto-Saving Settings**: Path settings and checkbox integrations now auto-save instantly when textboxes lose focus or checkbox states change, removing the need for a manual "Save" button.
+- **Dynamic Selection Prompts**: Per-game override controls are now hidden under a placeholder prompt until a game shortcut is selected.
+- **Dynamic Color Coding**: Color-coded the status column in the Steam Shortcuts list (soft green for Enabled, soft red for Disabled, orange for old UWPHook shortcuts).
+- **Embedded Executable Icon**: Created a custom sBridge icon and embedded it directly into the compiled binary and window title bar.
+- **sBridge Branding**: Consistently updated all window titles, labels, configuration headers, and messages to use "sBridge".
+
 ### v0.3.0
 - **UWPHook-like Functionality**: Added native UWP launching via COM, completely removing the dependency on external launchers.
 - **Add Custom Games**: Added support for standard `.exe` executables to easily wrap any PC game alongside UWP/Game Pass apps.
