@@ -194,18 +194,6 @@ partial class Program
             pageSteam.Controls.Add(txtGameWatch);
 
             // Tab 1 Content: Action Buttons (Row 2 - aligned at y=295)
-            Button btnMigrate = new Button();
-            btnMigrate.Text = "Migrate From UWPHook";
-            btnMigrate.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            btnMigrate.FlatStyle = FlatStyle.Flat;
-            btnMigrate.FlatAppearance.BorderSize = 0;
-            btnMigrate.BackColor = Color.FromArgb(44, 44, 48);
-            btnMigrate.ForeColor = Color.White;
-            btnMigrate.Location = new Point(15, 295);
-            btnMigrate.Size = new Size(170, 30);
-            btnMigrate.Click += (s, e) => MigrateFromUwpHook();
-            pageSteam.Controls.Add(btnMigrate);
-
             btnRemoveSelected = new Button();
             btnRemoveSelected.Text = "Remove Selected";
             btnRemoveSelected.Font = new Font("Segoe UI", 9, FontStyle.Bold);
@@ -213,8 +201,8 @@ partial class Program
             btnRemoveSelected.FlatAppearance.BorderSize = 0;
             btnRemoveSelected.BackColor = accentRed;
             btnRemoveSelected.ForeColor = Color.White;
-            btnRemoveSelected.Location = new Point(195, 295);
-            btnRemoveSelected.Size = new Size(325, 30);
+            btnRemoveSelected.Location = new Point(15, 295);
+            btnRemoveSelected.Size = new Size(495, 30);
             btnRemoveSelected.Click += (s, e) => RemoveSelectedShortcuts();
             pageSteam.Controls.Add(btnRemoveSelected);
 
@@ -225,8 +213,8 @@ partial class Program
             btnRefresh.FlatAppearance.BorderSize = 0;
             btnRefresh.BackColor = Color.FromArgb(60, 60, 64);
             btnRefresh.ForeColor = Color.White;
-            btnRefresh.Location = new Point(530, 295);
-            btnRefresh.Size = new Size(80, 30);
+            btnRefresh.Location = new Point(520, 295);
+            btnRefresh.Size = new Size(90, 30);
             btnRefresh.Click += (s, e) => RefreshShortcutsList();
             pageSteam.Controls.Add(btnRefresh);
 
@@ -514,6 +502,19 @@ partial class Program
             lblSisrWarning.Location = new Point(15, 205);
             lblSisrWarning.Size = new Size(605, 20);
             pageSettings.Controls.Add(lblSisrWarning);
+
+            // Migrate Button
+            Button btnMigrate = new Button();
+            btnMigrate.Text = "Migrate From UWPHook";
+            btnMigrate.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnMigrate.FlatStyle = FlatStyle.Flat;
+            btnMigrate.FlatAppearance.BorderSize = 0;
+            btnMigrate.BackColor = Color.FromArgb(44, 44, 48);
+            btnMigrate.ForeColor = Color.White;
+            btnMigrate.Location = new Point(15, 245);
+            btnMigrate.Size = new Size(605, 35);
+            btnMigrate.Click += (s, e) => MigrateFromUwpHook();
+            pageSettings.Controls.Add(btnMigrate);
 
             // Bottom Close Button
             Button btnClose = new Button();
