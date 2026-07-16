@@ -7,6 +7,14 @@ sBridge is a lightweight Windows utility that connects UWP games directly to Ste
 ## About This Project
 This is a personal hobby project created entirely using AI coding assistants to solve a specific problem I personally encountered, designed to make Steam Input work seamlessly with Windows Store / Game Pass games.
 
+## Screenshots
+
+| Steam Shortcuts (Main Tab) | Add UWP Games |
+| :---: | :---: |
+| ![Steam Shortcuts](screenshots/shortcuts.png) | ![Add UWP Games](screenshots/add_uwp.png) |
+| **Add Custom Game** | **Global Settings** |
+| ![Add Custom Game](screenshots/add_custom.png) | ![Global Settings](screenshots/global_settings.png) |
+
 ## The Problem
 
 If you play Xbox Game Pass or Windows Store (UWP) games, you've probably run into these issues when trying to add them to Steam:
