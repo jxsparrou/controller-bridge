@@ -156,6 +156,18 @@ partial class Program
 
     static void KillBackgroundProcesses()
     {
+        try
+        {
+            Log("Resetting forced Steam controller AppID...");
+            ProcessStartInfo psi = new ProcessStartInfo("steam://forceinputappid/0");
+            psi.UseShellExecute = true;
+            Process.Start(psi);
+        }
+        catch (Exception ex)
+        {
+            Log("Failed to reset forced Steam controller AppID: " + ex.Message);
+        }
+
         KillProcessesByName("SISR");
         KillProcessesByName("viiper");
     }
