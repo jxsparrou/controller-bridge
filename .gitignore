@@ -1,12 +1,9 @@
 # Compilation output
 sBridge.exe
-uwphook-bridge.exe
 
 # Configuration and logs
 sBridge.cfg
 sBridge.log
-uwphook-bridge.cfg
-uwphook-bridge.log
 
 # IDE files
 .vs/

@@ -5,9 +5,7 @@
 sBridge is a lightweight Windows utility that connects UWP games directly to Steam while coordinating [SISR](https://github.com/Alia5/SISR) (Steam Input System Redirector) in the background so you don't have to manage it manually.
 
 ## About This Project
-This is a personal hobby project created entirely using AI coding assistants to solve a specific problem I personally encountered. 
-
-I am currently open to suggestions for a new name for this utility! If you have a creative idea, feel free to open an issue or share your thoughts.
+This is a personal hobby project created entirely using AI coding assistants to solve a specific problem I personally encountered, designed to make Steam Input work seamlessly with Windows Store / Game Pass games.
 
 ## The Problem
 
@@ -42,6 +40,19 @@ You just click "Play" in Steam and everything works.
 - **Optional SISR Integration** — Toggle SISR controller redirection on or off. With SISR disabled, the bridge functions as a standalone, lightweight UWP launcher (a pure UWPHook replacement).
 - **Zero Dependencies** — Built with native C# and Windows COM interfaces. Compiles with the default Windows C# compiler.
 - **Silent & Invisible** — Runs silently in the background during gameplay with zero active overhead.
+
+## Prerequisites
+
+Before using sBridge, make sure you have:
+- **Windows 10 or 11**
+- **Steam** installed.
+- **[SISR](https://github.com/Alia5/SISR)** (Steam Input System Redirector) installed (only required if you want controller redirection; if you just want to launch UWP games on Steam, SISR is optional).
+- A **SteamGridDB API key** (optional, for downloading artwork).
+
+> [!WARNING]
+> **Windows SmartScreen Warning**
+> Since `sBridge.exe` is a newly released, unsigned executable, Windows Defender SmartScreen may display a warning ("Windows protected your PC") when you run it for the first time. 
+> To run it anyway, click **"More info"** and then **"Run anyway"**. If you prefer, you can compile the executable yourself from the source code.
 
 ## Quick Start
 

@@ -150,7 +150,7 @@ partial class Program
         {
             string msg = string.Format("An error occurred: {0}\n\nStack Trace:\n{1}", ex.Message, ex.StackTrace);
             Log(msg);
-            MessageBox.Show(msg, "UWPHook Bridge Exception", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(msg, "sBridge Exception", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -307,8 +307,8 @@ partial class Program
     static void ShowUsage()
     {
         string message = string.Format(
-            "Controller Bridge\n" +
-            "=================\n" +
+            "sBridge\n" +
+            "=======\n" +
             "This program launches UWP or custom PC games. When launched with a UWP App ID (AUMID) or executable path, it optionally runs SISR in the background, starts the game, and cleans up when the game closes.\n\n" +
             "Usage:\n" +
             "  sBridge.exe <AUMID_or_Path> [executable_hint_or_arguments]\n\n" +
