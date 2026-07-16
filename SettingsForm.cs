@@ -445,7 +445,7 @@ partial class Program
             chkEnableSisr.ForeColor = textLight;
             chkEnableSisr.CheckedChanged += (s, e) => {
                 UpdateSisrStatus();
-                SavePaths();
+                if (!isUpdatingUi) SavePaths();
             };
             pageSettings.Controls.Add(chkEnableSisr);
 
@@ -584,11 +584,13 @@ partial class Program
 
         private void LoadPaths()
         {
+            isUpdatingUi = true;
             chkEnableSisr.Checked = Program.sisrEnabled;
             txtSisr.Text = Program.sisrPath;
             txtSisrArgs.Text = Program.sisrArguments;
             txtSgdbKey.Text = Program.sgdbApiKey;
             UpdateSisrStatus();
+            isUpdatingUi = false;
         }
 
         private void SavePaths()
