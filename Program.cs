@@ -59,6 +59,7 @@ partial class Program
                 aumid = aumid.Replace('/', '\\');
             }
 
+            bool isEpicGame = aumid.StartsWith("epic:", StringComparison.OrdinalIgnoreCase);
             bool isCustomGame = File.Exists(aumid) || aumid.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || aumid.Contains("\\");
             string executableHint = "";
             string extraArgs = "";
@@ -66,7 +67,18 @@ partial class Program
             string watchOverride;
             bool hasWatchOverride = perGameWatch.TryGetValue(aumid, out watchOverride) && !string.IsNullOrEmpty(watchOverride);
 
-            if (isCustomGame)
+            if (isEpicGame)
+            {
+                // Epic games: args[0] = "epic:<AppName>", args[1] = executable hint
+                executableHint = hasWatchOverride ? watchOverride : (args.Length > 1 ? args[1] : "");
+                if (args.Length > 2)
+                {
+                    string[] extraParts = new string[args.Length - 2];
+                    Array.Copy(args, 2, extraParts, 0, args.Length - 2);
+                    extraArgs = string.Join(" ", extraParts);
+                }
+            }
+            else if (isCustomGame)
             {
                 executableHint = hasWatchOverride ? watchOverride : aumid;
                 if (args.Length > 1)
@@ -99,7 +111,7 @@ partial class Program
                 runSisr = overrideVal;
             }
 
-            Log(string.Format("Bridge started: Path/AUMID={0}, ExecutableHint={1}, ExtraArgs={2}, CustomGame={3}, SISR={4}", aumid, executableHint, extraArgs, isCustomGame, runSisr));
+            Log(string.Format("Bridge started: Path/AUMID={0}, ExecutableHint={1}, ExtraArgs={2}, CustomGame={3}, EpicGame={4}, SISR={5}", aumid, executableHint, extraArgs, isCustomGame, isEpicGame, runSisr));
 
             if (runSisr)
             {
@@ -124,7 +136,22 @@ partial class Program
             }
 
             int gamePid = 0;
-            if (isCustomGame)
+            string epicInstallDir = "";
+            if (isEpicGame)
+            {
+                // Epic games are launched via the launcher protocol
+                string epicAppName = aumid.Substring(5); // Remove "epic:" prefix
+                gamePid = LaunchEpicGame(epicAppName, extraArgs);
+
+                // Look up the manifest to get install location for process monitoring
+                EpicGameInfo epicInfo = FindEpicGameInfo(epicAppName);
+                if (epicInfo != null)
+                {
+                    epicInstallDir = epicInfo.InstallLocation;
+                    Log("Epic game install location: " + epicInstallDir);
+                }
+            }
+            else if (isCustomGame)
             {
                 gamePid = LaunchCustomGame(aumid, extraArgs);
             }
@@ -135,7 +162,7 @@ partial class Program
             }
 
             // Wait for the game to exit
-            WaitForGameExit(gamePid, executableHint);
+            WaitForGameExit(gamePid, executableHint, epicInstallDir);
 
             if (runSisr)
             {
