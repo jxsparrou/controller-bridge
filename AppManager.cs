@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 
 partial class Program
 {
@@ -135,16 +136,84 @@ partial class Program
     /// Waits for the game to exit by polling its process ID.
     /// If the initial PID exits early, attempts to find a replacement process
     /// (handles launcher-style apps that spawn a separate game process).
+    /// installDir is used as fallback for Epic games where the actual process name differs from LaunchExecutable.
     /// </summary>
-    static void WaitForGameExit(int processId, string executableHint)
+    static void WaitForGameExit(int processId, string executableHint, string installDir)
     {
         const int pollIntervalMs = 3000;
         const int launcherGracePeriodMs = 120000; // 2 minutes
 
         if (processId == 0)
         {
-            Log("Warning: UWP app returned PID 0 (launch may have failed).");
-            return;
+            if (!string.IsNullOrEmpty(executableHint))
+            {
+                Log("Process ID is 0 but executable hint provided. Waiting for game process to appear: " + executableHint);
+
+                string exeName = executableHint;
+                try
+                {
+                    if (executableHint.Contains("\\") || executableHint.Contains("/"))
+                    {
+                        exeName = Path.GetFileNameWithoutExtension(executableHint);
+                    }
+                    else if (executableHint.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                    {
+                        exeName = executableHint.Substring(0, executableHint.Length - 4);
+                    }
+                }
+                catch { }
+
+                // Wait for the process to appear (up to 60 seconds)
+                int waitRetries = 30;
+                while (waitRetries > 0)
+                {
+                    try
+                    {
+                        Process[] candidates = Process.GetProcessesByName(exeName);
+                        if (candidates.Length > 0)
+                        {
+                            processId = candidates[0].Id;
+                            Log("Game process appeared: " + exeName + " PID=" + processId);
+                            break;
+                        }
+                    }
+                    catch { }
+
+                    // Fallback: search by install path (for EAC games where process name differs)
+                    if (!string.IsNullOrEmpty(installDir))
+                    {
+                        try
+                        {
+                            var pathPids = FindProcessesByInstallPath(installDir);
+                            if (pathPids.Count > 0)
+                            {
+                                processId = pathPids[0];
+                                Log("Game process found by install path: PID=" + processId);
+                                break;
+                            }
+                        }
+                        catch { }
+                    }
+
+                    if (waitRetries > 1)
+                    {
+                        Log("Waiting for game process to start... (Attempts remaining: " + (waitRetries - 1) + ")");
+                        System.Threading.Thread.Sleep(2000);
+                    }
+                    waitRetries--;
+                }
+
+                if (processId == 0)
+                {
+                    Log("Warning: Game process did not appear within timeout. Bridge will keep running.");
+                    return;
+                }
+            }
+            else
+            {
+                Log("Warning: Process returned PID 0 with no executable hint. Cannot monitor.");
+                return;
+            }
         }
 
         Log("Monitoring process PID=" + processId + " for exit...");
@@ -216,6 +285,22 @@ partial class Program
                     catch (Exception ex)
                     {
                         Log("Error searching for replacement process: " + ex.Message);
+                    }
+
+                    // Fallback: search by install path for Epic/EAC games
+                    if (replacementPid == 0 && !string.IsNullOrEmpty(installDir))
+                    {
+                        try
+                        {
+                            var pathPids = FindProcessesByInstallPath(installDir);
+                            if (pathPids.Count > 0)
+                            {
+                                replacementPid = pathPids[0];
+                                Log("Found replacement process by install path: PID=" + replacementPid);
+                                break;
+                            }
+                        }
+                        catch { }
                     }
 
                     if (retries > 1)
@@ -377,6 +462,247 @@ foreach ($app in $installedapps) {
             catch { }
         }
 
-        return apps;
+            return apps;
+    }
+
+    // ==========================================
+    // Epic Games Scanner
+    // ==========================================
+
+    public class EpicGameInfo
+    {
+        public string Name { get; set; }           // Display name
+        public string AppName { get; set; }        // Epic catalog AppName (used as identifier)
+        public string CatalogNamespace { get; set; }
+        public string InstallLocation { get; set; }
+        public string Executable { get; set; }     // Executable filename
+        public string LaunchExecutable { get; set; }
+    }
+
+    /// <summary>
+    /// Scans for installed Epic Games Store games by reading .item manifest files.
+    /// Returns a list of games with their metadata.
+    /// </summary>
+    public static List<EpicGameInfo> ScanInstalledEpicGames()
+    {
+        var games = new List<EpicGameInfo>();
+
+        string[] manifestPaths = {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                @"Epic\EpicGamesLauncher\Data\Manifests"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                @"Epic\EpicGamesLauncher\Data\Manifests")
+        };
+
+        foreach (string manifestDir in manifestPaths)
+        {
+            if (!Directory.Exists(manifestDir)) continue;
+
+            try
+            {
+                string[] itemFiles = Directory.GetFiles(manifestDir, "*.item");
+                foreach (string itemFile in itemFiles)
+                {
+                    try
+                    {
+                        string content = File.ReadAllText(itemFile);
+                        EpicGameInfo game = ParseEpicManifest(content);
+                        if (game != null && !string.IsNullOrEmpty(game.AppName))
+                        {
+                            // Avoid duplicates
+                            bool duplicate = false;
+                            foreach (var existing in games)
+                            {
+                                if (existing.AppName.Equals(game.AppName, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    duplicate = true;
+                                    break;
+                                }
+                            }
+                            if (!duplicate)
+                            {
+                                games.Add(game);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("Failed to parse Epic manifest: " + itemFile + " - " + ex.Message);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log("Failed to scan Epic manifests directory: " + manifestDir + " - " + ex.Message);
+            }
+        }
+
+        Log("Epic Games scan found " + games.Count + " games.");
+        return games;
+    }
+
+    /// <summary>
+    /// Finds a specific Epic game's info by its AppName by scanning manifests.
+    /// Returns null if not found.
+    /// </summary>
+    public static EpicGameInfo FindEpicGameInfo(string appName)
+    {
+        string[] manifestPaths = {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                @"Epic\EpicGamesLauncher\Data\Manifests"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                @"Epic\EpicGamesLauncher\Data\Manifests")
+        };
+
+        foreach (string manifestDir in manifestPaths)
+        {
+            if (!Directory.Exists(manifestDir)) continue;
+            try
+            {
+                string[] itemFiles = Directory.GetFiles(manifestDir, "*.item");
+                foreach (string itemFile in itemFiles)
+                {
+                    try
+                    {
+                        string content = File.ReadAllText(itemFile);
+                        EpicGameInfo game = ParseEpicManifest(content);
+                        if (game != null && game.AppName.Equals(appName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return game;
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Finds all running processes whose executable path is within the given directory.
+    /// </summary>
+    private static List<int> FindProcessesByInstallPath(string installDir)
+    {
+        var pids = new List<int>();
+        if (string.IsNullOrEmpty(installDir) || !Directory.Exists(installDir)) return pids;
+
+        string dirPrefix = installDir.TrimEnd('\\').ToLowerInvariant();
+        try
+        {
+            foreach (var proc in Process.GetProcesses())
+            {
+                try
+                {
+                    if (!string.IsNullOrEmpty(proc.MainModule.FileName))
+                    {
+                        string procPath = proc.MainModule.FileName.ToLowerInvariant();
+                        if (procPath.StartsWith(dirPrefix))
+                        {
+                            pids.Add(proc.Id);
+                            Log("Found game process by install path: " + proc.ProcessName + " PID=" + proc.Id + " (" + proc.MainModule.FileName + ")");
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
+        return pids;
+    }
+
+    /// <summary>
+    /// Parses a single Epic .item manifest file using simple regex extraction.
+    /// </summary>
+    private static EpicGameInfo ParseEpicManifest(string json)
+    {
+        var game = new EpicGameInfo();
+        game.AppName = ExtractJsonValue(json, "AppName");
+        game.CatalogNamespace = ExtractJsonValue(json, "CatalogNamespace");
+        game.Name = ExtractJsonValue(json, "DisplayName");
+        game.InstallLocation = ExtractJsonValue(json, "InstallLocation");
+        game.Executable = ExtractJsonValue(json, "Executable");
+        game.LaunchExecutable = ExtractJsonValue(json, "LaunchExecutable");
+
+        // Normalize forward slashes to backslashes for Windows paths
+        if (!string.IsNullOrEmpty(game.LaunchExecutable))
+        {
+            game.LaunchExecutable = game.LaunchExecutable.Replace("/", "\\");
+        }
+        if (!string.IsNullOrEmpty(game.InstallLocation))
+        {
+            game.InstallLocation = game.InstallLocation.Replace("/", "\\");
+        }
+
+        if (string.IsNullOrEmpty(game.Name))
+        {
+            game.Name = game.AppName;
+        }
+
+        // Strip any non-printable characters from display name
+        if (!string.IsNullOrEmpty(game.Name))
+        {
+            game.Name = Regex.Replace(game.Name, @"[^\x20-\x7E]", "");
+            game.Name = game.Name.Trim();
+        }
+
+        return game;
+    }
+
+    /// <summary>
+    /// Extracts a string value from a simple JSON object using regex.
+    /// Handles escaped backslashes in Windows paths.
+    /// </summary>
+    private static string ExtractJsonValue(string json, string key)
+    {
+        // Match "key" : "value" with possible whitespace
+        var match = Regex.Match(json, "\"" + Regex.Escape(key) + "\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+        if (match.Success)
+        {
+            string value = match.Groups[1].Value;
+            // Unescape common JSON escapes
+            value = value.Replace("\\\\", "\\");
+            value = value.Replace("\\/", "/");
+            value = value.Replace("\\\"", "\"");
+            return value;
+        }
+        return "";
+    }
+
+    // ==========================================
+    // Epic Games Launcher Method
+    // ==========================================
+
+    /// <summary>
+    /// Launches an Epic Games Store game using the com.epicgames.launcher protocol.
+    /// Returns the process ID of the launched game (0 if launcher spawns it asynchronously).
+    /// </summary>
+    static int LaunchEpicGame(string appName, string extraArgs)
+    {
+        Log("Launching Epic game via protocol: AppName=" + appName + ", Args=" + extraArgs);
+        try
+        {
+            string protocolUri = "com.epicgames.launcher://apps/" + appName + "?action=launch";
+            if (!string.IsNullOrEmpty(extraArgs))
+            {
+                protocolUri += "&args=" + Uri.EscapeDataString(extraArgs);
+            }
+
+            ProcessStartInfo psi = new ProcessStartInfo(protocolUri);
+            psi.UseShellExecute = true;
+            Process proc = Process.Start(psi);
+            Log("Epic game launch initiated via protocol: " + protocolUri);
+
+            // The Epic launcher spawns the game process asynchronously.
+            // We return 0 here; the bridge will use WaitForGameExit with the executable hint
+            // to wait for the game process to appear and then monitor it.
+            return 0;
+        }
+        catch (Exception e)
+        {
+            string msg = "Failed to launch Epic game: " + e.Message;
+            Log(msg);
+            throw new Exception(msg, e);
+        }
     }
 }
