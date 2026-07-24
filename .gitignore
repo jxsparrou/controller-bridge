@@ -4,6 +4,7 @@ sBridge.exe
 # Configuration and logs
 sBridge.cfg
 sBridge.log
+viiper.log
 
 # IDE files
 .vs/
