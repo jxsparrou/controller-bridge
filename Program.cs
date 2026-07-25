@@ -34,6 +34,7 @@ partial class Program
     public static string sgdbApiKey = "";
     public static Dictionary<string, bool> perGameSisr = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
     public static Dictionary<string, string> perGameWatch = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    public static HashSet<string> selectedSteamAccountIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     [STAThread]
     static void Main(string[] args)
@@ -280,6 +281,12 @@ partial class Program
                         {
                             sgdbApiKey = val;
                         }
+                        else if (key.Equals("SelectedSteamAccounts", StringComparison.OrdinalIgnoreCase))
+                        {
+                            selectedSteamAccountIds = new HashSet<string>(
+                                val.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries),
+                                StringComparer.OrdinalIgnoreCase);
+                        }
                         else if (key.StartsWith("Sisr_", StringComparison.OrdinalIgnoreCase))
                         {
                             string gameId = key.Substring(5).Trim();
@@ -322,6 +329,7 @@ partial class Program
                 sw.WriteLine("SisrArguments=" + sisrArguments);
                 sw.WriteLine("SisrEnabled=" + sisrEnabled.ToString().ToLower());
                 sw.WriteLine("SgdbApiKey=" + sgdbApiKey);
+                sw.WriteLine("SelectedSteamAccounts=" + string.Join(",", selectedSteamAccountIds));
                 sw.WriteLine("LogEnabled=" + logEnabled.ToString().ToLower());
                 sw.WriteLine();
                 sw.WriteLine("# Per-game SISR Settings");
