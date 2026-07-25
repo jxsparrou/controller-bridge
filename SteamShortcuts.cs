@@ -18,15 +18,22 @@ partial class Program
         public VdfElement RootElement { get; set; }
     }
 
-    // === Steam path & shortcut methods ===
-    public static List<string> FindShortcutsVdfFiles()
+    // === SteamAccountInfo class ===
+    public class SteamAccountInfo
     {
-        var paths = new List<string>();
+        public string AccountId;   // userdata folder name (32-bit account id, as string)
+        public string SteamId64;   // derived, for lookup only
+        public string AccountName; // login name
+        public string PersonaName; // display name
+        public string VdfPath;     // full path to this account's shortcuts.vdf (may not exist yet)
+    }
+
+    // === Steam path & shortcut methods ===
+    public static string FindSteamPath()
+    {
+        string steamPath = null;
         try
         {
-            string steamPath = null;
-            
-            // Try HKCU first
             using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam"))
             {
                 if (key != null)
@@ -36,7 +43,6 @@ partial class Program
                 }
             }
 
-            // Try HKLM if not found
             if (string.IsNullOrEmpty(steamPath))
             {
                 using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Wow6432Node\Valve\Steam"))
@@ -48,7 +54,20 @@ partial class Program
                     }
                 }
             }
+        }
+        catch (Exception ex)
+        {
+            Log("Error resolving Steam install path: " + ex.Message);
+        }
+        return steamPath;
+    }
 
+    public static List<string> FindShortcutsVdfFiles()
+    {
+        var paths = new List<string>();
+        try
+        {
+            string steamPath = FindSteamPath();
             if (!string.IsNullOrEmpty(steamPath))
             {
                 string userdataPath = Path.Combine(steamPath, "userdata");
@@ -64,7 +83,6 @@ partial class Program
             Log("Error searching for Steam shortcuts: " + ex.Message);
         }
 
-        // Fallback: Check typical paths if none found
         if (paths.Count == 0)
         {
             string[] fallbacks = {
@@ -81,11 +99,101 @@ partial class Program
                         paths.AddRange(vdfFiles);
                     }
                 }
-                catch {}
+                catch { }
             }
         }
 
         return paths;
+    }
+
+    private class LoginUserEntry
+    {
+        public string AccountName;
+        public string PersonaName;
+    }
+
+    private static Dictionary<string, LoginUserEntry> ParseLoginUsers(string steamPath)
+    {
+        var result = new Dictionary<string, LoginUserEntry>();
+        try
+        {
+            string loginUsersPath = Path.Combine(steamPath, "config", "loginusers.vdf");
+            if (!File.Exists(loginUsersPath)) return result;
+
+            string content = File.ReadAllText(loginUsersPath);
+
+            // Match each `"<17-digit SteamID64>" { ... }` block (non-greedy up to the next top-level close brace)
+            var blockMatches = System.Text.RegularExpressions.Regex.Matches(
+                content, "\"(\\d{17})\"\\s*\\{([^{}]*)\\}");
+
+            foreach (System.Text.RegularExpressions.Match m in blockMatches)
+            {
+                string steamId64 = m.Groups[1].Value;
+                string block = m.Groups[2].Value;
+
+                var entry = new LoginUserEntry();
+                var accountNameMatch = System.Text.RegularExpressions.Regex.Match(block, "\"AccountName\"\\s*\"([^\"]*)\"");
+                var personaNameMatch = System.Text.RegularExpressions.Regex.Match(block, "\"PersonaName\"\\s*\"([^\"]*)\"");
+                entry.AccountName = accountNameMatch.Success ? accountNameMatch.Groups[1].Value : "";
+                entry.PersonaName = personaNameMatch.Success ? personaNameMatch.Groups[1].Value : "";
+
+                result[steamId64] = entry;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log("Failed to parse loginusers.vdf: " + ex.Message);
+        }
+        return result;
+    }
+
+    public static List<SteamAccountInfo> FindSteamAccounts()
+    {
+        var accounts = new List<SteamAccountInfo>();
+        string steamPath = FindSteamPath();
+        if (string.IsNullOrEmpty(steamPath))
+        {
+            steamPath = Directory.Exists(@"C:\Program Files (x86)\Steam") ? @"C:\Program Files (x86)\Steam" : null;
+        }
+        if (string.IsNullOrEmpty(steamPath)) return accounts;
+
+        string userdataPath = Path.Combine(steamPath, "userdata");
+        if (!Directory.Exists(userdataPath)) return accounts;
+
+        var loginUsers = ParseLoginUsers(steamPath);
+
+        foreach (string accountDir in Directory.GetDirectories(userdataPath))
+        {
+            string accountId = Path.GetFileName(accountDir);
+            long accountIdNum;
+            if (!long.TryParse(accountId, out accountIdNum)) continue; // skip non-numeric folders (e.g. "0" / "ac")
+            if (accountIdNum == 0) continue; // "0" is Steam's shared/anonymous placeholder, not a real account
+
+            string steamId64 = (accountIdNum + 76561197960265728L).ToString();
+
+            var info = new SteamAccountInfo
+            {
+                AccountId = accountId,
+                SteamId64 = steamId64,
+                VdfPath = Path.Combine(accountDir, "config", "shortcuts.vdf")
+            };
+
+            LoginUserEntry entry;
+            if (loginUsers.TryGetValue(steamId64, out entry))
+            {
+                info.AccountName = entry.AccountName;
+                info.PersonaName = entry.PersonaName;
+            }
+            else
+            {
+                info.AccountName = accountId;
+                info.PersonaName = accountId;
+            }
+
+            accounts.Add(info);
+        }
+
+        return accounts;
     }
 
     public static List<SteamShortcutItem> LoadSteamShortcuts()
