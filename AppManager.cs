@@ -133,93 +133,106 @@ partial class Program
     // ==========================================
 
     /// <summary>
+    /// Extracts the bare executable name (no path, no extension) from a hint that may be
+    /// a full path, a bare filename, or already just the name.
+    /// </summary>
+    internal static string ExtractExeName(string executableHint)
+    {
+        string exeName = executableHint;
+        try
+        {
+            if (executableHint.Contains("\\") || executableHint.Contains("/"))
+            {
+                exeName = Path.GetFileNameWithoutExtension(executableHint);
+            }
+            else if (executableHint.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                exeName = executableHint.Substring(0, executableHint.Length - 4);
+            }
+        }
+        catch { }
+        return exeName;
+    }
+
+    /// <summary>
+    /// Searches for a running process matching either the given executable name or,
+    /// as a fallback (for EAC/Epic games where the real process name differs from the
+    /// launch hint), any running process whose path is under installDir. Retries with a
+    /// delay between attempts. Returns 0 if nothing is found within the retry budget.
+    /// </summary>
+    internal static int FindMatchingProcess(string exeName, string installDir, int maxRetries, int retryDelayMs)
+    {
+        for (int retry = 0; retry < maxRetries; retry++)
+        {
+            try
+            {
+                Process[] candidates = Process.GetProcessesByName(exeName);
+                if (candidates.Length > 0)
+                {
+                    return candidates[0].Id;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log("Error searching for process by name: " + ex.Message);
+            }
+
+            if (!string.IsNullOrEmpty(installDir))
+            {
+                try
+                {
+                    var pathPids = FindProcessesByInstallPath(installDir);
+                    if (pathPids.Count > 0)
+                    {
+                        return pathPids[0];
+                    }
+                }
+                catch { }
+            }
+
+            if (retry < maxRetries - 1)
+            {
+                System.Threading.Thread.Sleep(retryDelayMs);
+            }
+        }
+        return 0;
+    }
+
+    /// <summary>
     /// Waits for the game to exit by polling its process ID.
-    /// If the initial PID exits early, attempts to find a replacement process
-    /// (handles launcher-style apps that spawn a separate game process).
-    /// installDir is used as fallback for Epic games where the actual process name differs from LaunchExecutable.
+    /// If the tracked process exits, searches for a replacement (handles launcher-style
+    /// apps that hand off to a separate game process). This search runs on every exit for
+    /// the life of the session, not just the first one — multi-stage launchers (e.g. an
+    /// Epic Games launcher stub handing off to an anti-cheat bootstrapper, which then hands
+    /// off to the actual game process) can legitimately go through more than one handoff.
+    /// installDir is used as a fallback match for Epic games where the actual process name
+    /// differs from LaunchExecutable.
     /// </summary>
     static void WaitForGameExit(int processId, string executableHint, string installDir)
     {
         const int pollIntervalMs = 3000;
-        const int launcherGracePeriodMs = 120000; // 2 minutes
+        string exeName = !string.IsNullOrEmpty(executableHint) ? ExtractExeName(executableHint) : "";
 
         if (processId == 0)
         {
-            if (!string.IsNullOrEmpty(executableHint))
-            {
-                Log("Process ID is 0 but executable hint provided. Waiting for game process to appear: " + executableHint);
-
-                string exeName = executableHint;
-                try
-                {
-                    if (executableHint.Contains("\\") || executableHint.Contains("/"))
-                    {
-                        exeName = Path.GetFileNameWithoutExtension(executableHint);
-                    }
-                    else if (executableHint.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                    {
-                        exeName = executableHint.Substring(0, executableHint.Length - 4);
-                    }
-                }
-                catch { }
-
-                // Wait for the process to appear (up to 60 seconds)
-                int waitRetries = 30;
-                while (waitRetries > 0)
-                {
-                    try
-                    {
-                        Process[] candidates = Process.GetProcessesByName(exeName);
-                        if (candidates.Length > 0)
-                        {
-                            processId = candidates[0].Id;
-                            Log("Game process appeared: " + exeName + " PID=" + processId);
-                            break;
-                        }
-                    }
-                    catch { }
-
-                    // Fallback: search by install path (for EAC games where process name differs)
-                    if (!string.IsNullOrEmpty(installDir))
-                    {
-                        try
-                        {
-                            var pathPids = FindProcessesByInstallPath(installDir);
-                            if (pathPids.Count > 0)
-                            {
-                                processId = pathPids[0];
-                                Log("Game process found by install path: PID=" + processId);
-                                break;
-                            }
-                        }
-                        catch { }
-                    }
-
-                    if (waitRetries > 1)
-                    {
-                        Log("Waiting for game process to start... (Attempts remaining: " + (waitRetries - 1) + ")");
-                        System.Threading.Thread.Sleep(2000);
-                    }
-                    waitRetries--;
-                }
-
-                if (processId == 0)
-                {
-                    Log("Warning: Game process did not appear within timeout. Bridge will keep running.");
-                    return;
-                }
-            }
-            else
+            if (string.IsNullOrEmpty(executableHint))
             {
                 Log("Warning: Process returned PID 0 with no executable hint. Cannot monitor.");
                 return;
             }
+
+            Log("Process ID is 0 but executable hint provided. Waiting for game process to appear: " + executableHint);
+            processId = FindMatchingProcess(exeName, installDir, 30, 2000);
+            if (processId == 0)
+            {
+                Log("Warning: Game process did not appear within timeout. Bridge will keep running.");
+                return;
+            }
+            Log("Game process appeared: PID=" + processId);
         }
 
         Log("Monitoring process PID=" + processId + " for exit...");
-        DateTime launchTime = DateTime.Now;
         int currentPid = processId;
-        bool foundReplacement = false;
 
         while (true)
         {
@@ -245,89 +258,23 @@ partial class Program
                 continue;
             }
 
-            // Process exited — check if it was a launcher that spawned the real game
-            double elapsedMs = (DateTime.Now - launchTime).TotalMilliseconds;
-
-            if (!foundReplacement && !string.IsNullOrEmpty(executableHint) && elapsedMs < launcherGracePeriodMs)
-            {
-                Log("Initial process exited (" + (int)elapsedMs + "ms). Searching for replacement process...");
-
-                // Extract the executable name from the hint (e.g., "game.exe" from a path or name)
-                string exeName = executableHint;
-                try
-                {
-                    if (executableHint.Contains("\\") || executableHint.Contains("/"))
-                    {
-                        exeName = Path.GetFileNameWithoutExtension(executableHint);
-                    }
-                    else if (executableHint.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                    {
-                        exeName = executableHint.Substring(0, executableHint.Length - 4);
-                    }
-                }
-                catch { }
-
-                // Search for a process matching the executable name with retries (up to 45 attempts, 90 seconds total)
-                int replacementPid = 0;
-                int retries = 45;
-                while (retries > 0)
-                {
-                    try
-                    {
-                        Process[] candidates = Process.GetProcessesByName(exeName);
-                        if (candidates.Length > 0)
-                        {
-                            replacementPid = candidates[0].Id;
-                            Log("Found replacement process: " + exeName + " PID=" + replacementPid);
-                            break;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Log("Error searching for replacement process: " + ex.Message);
-                    }
-
-                    // Fallback: search by install path for Epic/EAC games
-                    if (replacementPid == 0 && !string.IsNullOrEmpty(installDir))
-                    {
-                        try
-                        {
-                            var pathPids = FindProcessesByInstallPath(installDir);
-                            if (pathPids.Count > 0)
-                            {
-                                replacementPid = pathPids[0];
-                                Log("Found replacement process by install path: PID=" + replacementPid);
-                                break;
-                            }
-                        }
-                        catch { }
-                    }
-
-                    if (retries > 1)
-                    {
-                        Log("No replacement process found yet. Retrying in 2 seconds... (Attempts remaining: " + (retries - 1) + ")");
-                        System.Threading.Thread.Sleep(2000);
-                    }
-                    retries--;
-                }
-
-                if (replacementPid > 0)
-                {
-                    currentPid = replacementPid;
-                    foundReplacement = true;
-                    continue;
-                }
-                else
-                {
-                    Log("No replacement process found. Assuming app has exited.");
-                    break;
-                }
-            }
-            else
+            if (string.IsNullOrEmpty(executableHint))
             {
                 Log("Monitored process PID=" + currentPid + " has exited.");
                 break;
             }
+
+            Log("Process PID=" + currentPid + " exited. Checking for a launcher handoff...");
+            int replacementPid = FindMatchingProcess(exeName, installDir, 45, 2000);
+            if (replacementPid > 0)
+            {
+                Log("Found replacement process (handoff): PID=" + replacementPid);
+                currentPid = replacementPid;
+                continue;
+            }
+
+            Log("No replacement process found. Assuming app has exited.");
+            break;
         }
     }
 
