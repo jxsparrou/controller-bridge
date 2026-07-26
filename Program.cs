@@ -128,6 +128,31 @@ partial class Program
                 // Terminate any existing SISR and VIIPER instances to avoid conflicts and start clean
                 KillBackgroundProcesses();
 
+                // Set the forced Steam controller AppID so Steam uses the correct controller profile
+                try
+                {
+                    string bridgeExe = Process.GetCurrentProcess().MainModule.FileName;
+                    string appNameForId = aumid;
+                    if (isEpicGame)
+                    {
+                        string epicAppName = aumid.Substring(5);
+                        EpicGameInfo epicInfo = FindEpicGameInfo(epicAppName);
+                        if (epicInfo != null && !string.IsNullOrEmpty(epicInfo.Name))
+                        {
+                            appNameForId = epicInfo.Name;
+                        }
+                    }
+                    uint controllerAppId = CalculateAppId(appNameForId, bridgeExe);
+                    Log("Setting forced Steam controller AppID to: " + controllerAppId + " (name: " + appNameForId + ")");
+                    ProcessStartInfo setAppId = new ProcessStartInfo("steam://forceinputappid/" + controllerAppId);
+                    setAppId.UseShellExecute = true;
+                    Process.Start(setAppId);
+                }
+                catch (Exception ex)
+                {
+                    Log("Failed to set forced Steam controller AppID: " + ex.Message);
+                }
+
                 // Start SISR
                 Log(string.Format("Launching SISR: {0} {1}", sisrPath, sisrArguments));
                 ProcessStartInfo sisrInfo = new ProcessStartInfo(sisrPath, sisrArguments);

@@ -287,9 +287,14 @@ partial class Program
             int maxRetries = firstExitSearchDone ? 3 : 45;
             int retryDelayMs = firstExitSearchDone ? 1000 : 2000;
             DateTime exitTime = DateTime.Now;
+
+            // For the first search, look back 120s before exitTime so we can find EAC /
+            // multi-stage processes that started BEFORE the launcher stub exited.
+            // Subsequent searches use the strict exitTime window (the game is genuinely ending).
+            DateTime? minStartTime = firstExitSearchDone ? exitTime : exitTime.AddSeconds(-120);
             firstExitSearchDone = true;
 
-            int replacementPid = FindMatchingProcess(exeName, installDir, maxRetries, retryDelayMs, exitTime);
+            int replacementPid = FindMatchingProcess(exeName, installDir, maxRetries, retryDelayMs, minStartTime);
             if (replacementPid > 0)
             {
                 Log("Found replacement process (handoff): PID=" + replacementPid);
@@ -298,8 +303,44 @@ partial class Program
             }
 
             Log("No replacement process found. Assuming app has exited.");
+
+            // Diagnostic: list all running processes under the install directory to help
+            // identify the correct Watch Process name (useful for EAC / multi-stage launchers)
+            if (!string.IsNullOrEmpty(installDir))
+            {
+                LogDiagnosticProcesses(installDir);
+            }
             break;
         }
+    }
+
+    /// <summary>
+    /// Lists every running process whose executable path falls under the given directory.
+    /// Useful for diagnosing EAC / multi-stage launcher handoff failures.
+    /// </summary>
+    static void LogDiagnosticProcesses(string installDir)
+    {
+        string dirPrefix = installDir.TrimEnd('\\').ToLowerInvariant();
+        Log("Diagnostic: listing all running processes under " + installDir);
+        try
+        {
+            foreach (var proc in Process.GetProcesses())
+            {
+                try
+                {
+                    if (!string.IsNullOrEmpty(proc.MainModule.FileName))
+                    {
+                        string procPath = proc.MainModule.FileName.ToLowerInvariant();
+                        if (procPath.StartsWith(dirPrefix))
+                        {
+                            Log("  Process: " + proc.ProcessName + " PID=" + proc.Id + " (" + proc.MainModule.FileName + ")");
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
     }
 
     // ==========================================
@@ -555,8 +596,10 @@ foreach ($app in $installedapps) {
     /// If minStartTime is given, candidates whose StartTime can be determined and predates it
     /// are excluded — this avoids re-adopting a long-lived helper process (anti-cheat service,
     /// crash reporter, updater) that was already running under the install directory before the
-    /// previously-tracked process exited. Candidates whose StartTime can't be read (e.g.
-    /// Win32Exception due to access restrictions) are kept, since we can't rule them out.
+    /// previously-tracked process exited.
+    ///
+    /// When EAC or other anti-cheat software hides process paths (MainModule.FileName is empty),
+    /// falls back to scanning the install directory for .exe files and matching by process name.
     /// </summary>
     private static List<int> FindProcessesByInstallPath(string installDir, DateTime? minStartTime = null)
     {
@@ -564,35 +607,51 @@ foreach ($app in $installedapps) {
         if (string.IsNullOrEmpty(installDir) || !Directory.Exists(installDir)) return pids;
 
         string dirPrefix = installDir.TrimEnd('\\').ToLowerInvariant();
+        HashSet<string> exeProcessNames = null; // lazily built if needed
+
         try
         {
             foreach (var proc in Process.GetProcesses())
             {
                 try
                 {
-                    if (!string.IsNullOrEmpty(proc.MainModule.FileName))
+                    string procPath = null;
+                    try { procPath = proc.MainModule.FileName; } catch { }
+
+                    if (!string.IsNullOrEmpty(procPath))
                     {
-                        string procPath = proc.MainModule.FileName.ToLowerInvariant();
-                        if (procPath.StartsWith(dirPrefix))
+                        // Normal path-based match
+                        if (procPath.ToLowerInvariant().StartsWith(dirPrefix))
                         {
                             if (minStartTime.HasValue)
                             {
-                                try
-                                {
-                                    if (proc.StartTime < minStartTime.Value)
-                                    {
-                                        continue; // predates the exit we're searching after — not a handoff
-                                    }
-                                }
-                                catch
-                                {
-                                    // StartTime unavailable (e.g. Win32Exception) — can't rule it
-                                    // out, so keep it and rely on the caller's retry budget.
-                                }
+                                try { if (proc.StartTime < minStartTime.Value) continue; }
+                                catch { }
                             }
 
                             pids.Add(proc.Id);
-                            Log("Found game process by install path: " + proc.ProcessName + " PID=" + proc.Id + " (" + proc.MainModule.FileName + ")");
+                            Log("Found game process by install path: " + proc.ProcessName + " PID=" + proc.Id + " (" + procPath + ")");
+                        }
+                    }
+                    else
+                    {
+                        // Path hidden by anti-cheat. Try to match by process name
+                        // against .exe files found in the install directory.
+                        if (exeProcessNames == null)
+                        {
+                            exeProcessNames = ScanExeNames(installDir);
+                        }
+
+                        if (exeProcessNames.Count > 0 && exeProcessNames.Contains(proc.ProcessName))
+                        {
+                            if (minStartTime.HasValue)
+                            {
+                                try { if (proc.StartTime < minStartTime.Value) continue; }
+                                catch { }
+                            }
+
+                            pids.Add(proc.Id);
+                            Log("Found game process by name (path hidden by anti-cheat): " + proc.ProcessName + " PID=" + proc.Id);
                         }
                     }
                 }
@@ -600,7 +659,36 @@ foreach ($app in $installedapps) {
             }
         }
         catch { }
+
+        if (pids.Count == 0)
+        {
+            Log("No processes found under install directory: " + installDir);
+        }
+
         return pids;
+    }
+
+    /// <summary>
+    /// Scans the install directory (recursively) for .exe files and returns their process names
+    /// (filename without extension). Used as a fallback when anti-cheat hides process paths.
+    /// </summary>
+    private static HashSet<string> ScanExeNames(string installDir)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (string file in Directory.GetFiles(installDir, "*.exe", SearchOption.AllDirectories))
+            {
+                string name = Path.GetFileNameWithoutExtension(file);
+                if (!string.IsNullOrEmpty(name))
+                {
+                    names.Add(name);
+                }
+            }
+        }
+        catch { }
+        Log("Scanned " + names.Count + " .exe names from install directory: " + installDir);
+        return names;
     }
 
     /// <summary>

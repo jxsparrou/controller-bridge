@@ -557,7 +557,7 @@ partial class Program
                     }
 
                     // 6. Update the shortcut's icon field to point to the downloaded icon (fall back to grid artwork)
-                    string iconFile = Path.Combine(gridDir, appId + "-icon.png");
+                    string iconFile = Path.Combine(gridDir, appId + "-icon.ico");
                     string gridImage = File.Exists(iconFile) ? iconFile : Path.Combine(gridDir, appId + ".png");
                     if (File.Exists(gridImage))
                     {
@@ -607,23 +607,11 @@ partial class Program
                         ext = ".png";
                     }
 
-                    string destFile = targetPathWithoutExt + (isIcon ? ".png" : ext);
+                    string destFile = targetPathWithoutExt + (isIcon ? ".ico" : ext);
                     Log("Downloading image: " + imageUrl + " -> " + destFile);
                     if (isIcon)
                     {
-                        try
-                        {
-                            byte[] data = client.DownloadData(imageUrl);
-                            using (var ms = new System.IO.MemoryStream(data))
-                            using (var img = System.Drawing.Image.FromStream(ms))
-                            {
-                                img.Save(destFile, System.Drawing.Imaging.ImageFormat.Png);
-                            }
-                        }
-                        catch (Exception)
-                        {
-                            client.DownloadFile(imageUrl, destFile);
-                        }
+                        client.DownloadFile(imageUrl, destFile);
                     }
                     else
                     {
