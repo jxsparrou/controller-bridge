@@ -283,9 +283,15 @@ partial class Program
                         }
                         else if (key.Equals("SelectedSteamAccounts", StringComparison.OrdinalIgnoreCase))
                         {
+                            var rawAccountTokens = val.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                            var trimmedAccountTokens = new List<string>();
+                            foreach (var accountToken in rawAccountTokens)
+                            {
+                                string trimmedAccountToken = accountToken.Trim();
+                                if (trimmedAccountToken.Length > 0) trimmedAccountTokens.Add(trimmedAccountToken);
+                            }
                             selectedSteamAccountIds = new HashSet<string>(
-                                val.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries),
-                                StringComparer.OrdinalIgnoreCase);
+                                trimmedAccountTokens, StringComparer.OrdinalIgnoreCase);
                         }
                         else if (key.StartsWith("Sisr_", StringComparison.OrdinalIgnoreCase))
                         {

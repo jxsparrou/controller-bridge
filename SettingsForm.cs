@@ -697,9 +697,16 @@ partial class Program
             var accounts = Program.FindSteamAccounts();
             foreach (var acct in accounts)
             {
-                string label = acct.PersonaName == acct.AccountId
-                    ? acct.AccountId
-                    : string.Format("{0} ({1})", acct.PersonaName, acct.AccountName);
+                string label;
+                if (acct.PersonaName == acct.AccountId ||
+                    (string.IsNullOrWhiteSpace(acct.PersonaName) && string.IsNullOrWhiteSpace(acct.AccountName)))
+                {
+                    label = acct.AccountId;
+                }
+                else
+                {
+                    label = string.Format("{0} ({1})", acct.PersonaName, acct.AccountName);
+                }
                 int index = clbSteamAccounts.Items.Add(label);
                 clbSteamAccounts.SetItemCheckState(index,
                     Program.selectedSteamAccountIds.Contains(acct.AccountId) ? CheckState.Checked : CheckState.Unchecked);
