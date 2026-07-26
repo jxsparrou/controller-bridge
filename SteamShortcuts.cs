@@ -108,21 +108,22 @@ partial class Program
 
     public static List<string> FindShortcutsVdfFiles(bool selectedOnly)
     {
-        var allPaths = FindShortcutsVdfFiles();
         if (!selectedOnly || selectedSteamAccountIds.Count == 0)
         {
-            return allPaths;
+            return FindShortcutsVdfFiles();
         }
 
+        // Derive the filtered list from the account list itself (via each account's computed
+        // VdfPath) rather than from the set of already-existing shortcuts.vdf files. Steam
+        // doesn't create shortcuts.vdf for an account until it has its first non-Steam
+        // shortcut, so a freshly-selected account with no prior shortcuts would otherwise be
+        // filtered out entirely even though its (not-yet-existing) path is well-defined.
         var filtered = new List<string>();
-        foreach (string vdfPath in allPaths)
+        foreach (var account in FindSteamAccounts())
         {
-            // vdfPath looks like <steamPath>\userdata\<accountid>\config\shortcuts.vdf
-            string accountDir = Directory.GetParent(Path.GetDirectoryName(vdfPath)).FullName;
-            string accountId = Path.GetFileName(accountDir);
-            if (selectedSteamAccountIds.Contains(accountId))
+            if (selectedSteamAccountIds.Contains(account.AccountId))
             {
-                filtered.Add(vdfPath);
+                filtered.Add(account.VdfPath);
             }
         }
         return filtered;
@@ -184,35 +185,42 @@ partial class Program
 
         var loginUsers = ParseLoginUsers(steamPath);
 
-        foreach (string accountDir in Directory.GetDirectories(userdataPath))
+        try
         {
-            string accountId = Path.GetFileName(accountDir);
-            long accountIdNum;
-            if (!long.TryParse(accountId, out accountIdNum)) continue; // skip non-numeric folders (e.g. "0" / "ac")
-            if (accountIdNum == 0) continue; // "0" is Steam's shared/anonymous placeholder, not a real account
-
-            string steamId64 = (accountIdNum + 76561197960265728L).ToString();
-
-            var info = new SteamAccountInfo
+            foreach (string accountDir in Directory.GetDirectories(userdataPath))
             {
-                AccountId = accountId,
-                SteamId64 = steamId64,
-                VdfPath = Path.Combine(accountDir, "config", "shortcuts.vdf")
-            };
+                string accountId = Path.GetFileName(accountDir);
+                long accountIdNum;
+                if (!long.TryParse(accountId, out accountIdNum)) continue; // skip non-numeric folders (e.g. "0" / "ac")
+                if (accountIdNum == 0) continue; // "0" is Steam's shared/anonymous placeholder, not a real account
 
-            LoginUserEntry entry;
-            if (loginUsers.TryGetValue(steamId64, out entry))
-            {
-                info.AccountName = entry.AccountName;
-                info.PersonaName = entry.PersonaName;
+                string steamId64 = (accountIdNum + 76561197960265728L).ToString();
+
+                var info = new SteamAccountInfo
+                {
+                    AccountId = accountId,
+                    SteamId64 = steamId64,
+                    VdfPath = Path.Combine(accountDir, "config", "shortcuts.vdf")
+                };
+
+                LoginUserEntry entry;
+                if (loginUsers.TryGetValue(steamId64, out entry))
+                {
+                    info.AccountName = entry.AccountName;
+                    info.PersonaName = entry.PersonaName;
+                }
+                else
+                {
+                    info.AccountName = accountId;
+                    info.PersonaName = accountId;
+                }
+
+                accounts.Add(info);
             }
-            else
-            {
-                info.AccountName = accountId;
-                info.PersonaName = accountId;
-            }
-
-            accounts.Add(info);
+        }
+        catch (Exception ex)
+        {
+            Log("Error enumerating Steam accounts: " + ex.Message);
         }
 
         return accounts;
@@ -288,9 +296,13 @@ partial class Program
 
             try
             {
-                // Create backup
-                string backupPath = vdfPath + ".bak";
-                File.Copy(vdfPath, backupPath, true);
+                // Create backup (only if a prior file exists — a freshly-selected account may
+                // not have a shortcuts.vdf yet)
+                if (File.Exists(vdfPath))
+                {
+                    string backupPath = vdfPath + ".bak";
+                    File.Copy(vdfPath, backupPath, true);
+                }
 
                 // Serialize
                 byte[] serializedBytes;
@@ -303,6 +315,14 @@ partial class Program
                     writer.Write((byte)0x08); // Close root map
                     writer.Write((byte)0x08); // Extra Steam trailing 0x08
                     serializedBytes = ms.ToArray();
+                }
+
+                // Ensure the account's config directory exists (fresh accounts have no
+                // shortcuts.vdf yet, so their "config" folder may not exist either).
+                string vdfDir = Path.GetDirectoryName(vdfPath);
+                if (!string.IsNullOrEmpty(vdfDir))
+                {
+                    Directory.CreateDirectory(vdfDir);
                 }
 
                 File.WriteAllBytes(vdfPath, serializedBytes);
