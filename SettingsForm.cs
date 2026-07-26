@@ -16,6 +16,7 @@ partial class Program
         private Button btnBrowseSisr;
         private Label lblSisrWarning;
         private TextBox txtSgdbKey;
+        private CheckedListBox clbSteamAccounts;
 
         private TabControl tabControl;
         private TabPage pageSteam;
@@ -579,11 +580,47 @@ partial class Program
             txtSgdbKey.Leave += (s, e) => SavePaths();
             pageSettings.Controls.Add(txtSgdbKey);
 
+            // Steam Accounts checklist
+            Label lblSteamAccounts = new Label();
+            lblSteamAccounts.Text = "Steam Accounts to add shortcuts to (none checked = all accounts):";
+            lblSteamAccounts.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblSteamAccounts.Location = new Point(15, 195);
+            lblSteamAccounts.Size = new Size(500, 20);
+            lblSteamAccounts.ForeColor = textLight;
+            pageSettings.Controls.Add(lblSteamAccounts);
+
+            clbSteamAccounts = new CheckedListBox();
+            clbSteamAccounts.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            clbSteamAccounts.BackColor = bgInput;
+            clbSteamAccounts.ForeColor = Color.White;
+            clbSteamAccounts.BorderStyle = BorderStyle.FixedSingle;
+            clbSteamAccounts.Location = new Point(15, 215);
+            clbSteamAccounts.Size = new Size(500, 60);
+            clbSteamAccounts.CheckOnClick = true;
+            clbSteamAccounts.ItemCheck += (s, e) =>
+            {
+                // Skip during programmatic population (LoadSteamAccountsList runs before the
+                // form handle exists on first load, and BeginInvoke would throw; it's also
+                // pointless to save while we're the ones setting check states).
+                if (isUpdatingUi) return;
+                // ItemCheck fires before CheckedItems updates, so defer to after this event completes
+                this.BeginInvoke((MethodInvoker)delegate { SaveSelectedSteamAccounts(); });
+            };
+            pageSettings.Controls.Add(clbSteamAccounts);
+
+            Button btnRefreshAccounts = new Button();
+            btnRefreshAccounts.Text = "Refresh";
+            btnRefreshAccounts.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            btnRefreshAccounts.Location = new Point(525, 215);
+            btnRefreshAccounts.Size = new Size(95, 25);
+            btnRefreshAccounts.Click += (s, e) => LoadSteamAccountsList();
+            pageSettings.Controls.Add(btnRefreshAccounts);
+
             // Global SISR Warning Label
             lblSisrWarning = new Label();
             lblSisrWarning.Text = "Checking SISR status...";
             lblSisrWarning.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            lblSisrWarning.Location = new Point(15, 205);
+            lblSisrWarning.Location = new Point(15, 285);
             lblSisrWarning.Size = new Size(605, 20);
             pageSettings.Controls.Add(lblSisrWarning);
 
@@ -595,7 +632,7 @@ partial class Program
             btnMigrate.FlatAppearance.BorderSize = 0;
             btnMigrate.BackColor = Color.FromArgb(44, 44, 48);
             btnMigrate.ForeColor = Color.White;
-            btnMigrate.Location = new Point(15, 245);
+            btnMigrate.Location = new Point(15, 315);
             btnMigrate.Size = new Size(605, 35);
             btnMigrate.Click += (s, e) => MigrateFromUwpHook();
             pageSettings.Controls.Add(btnMigrate);
@@ -649,8 +686,42 @@ partial class Program
             txtSisr.Text = Program.sisrPath;
             txtSisrArgs.Text = Program.sisrArguments;
             txtSgdbKey.Text = Program.sgdbApiKey;
+            LoadSteamAccountsList();
             UpdateSisrStatus();
             isUpdatingUi = false;
+        }
+
+        private void LoadSteamAccountsList()
+        {
+            clbSteamAccounts.Items.Clear();
+            var accounts = Program.FindSteamAccounts();
+            foreach (var acct in accounts)
+            {
+                string label = acct.PersonaName == acct.AccountId
+                    ? acct.AccountId
+                    : string.Format("{0} ({1})", acct.PersonaName, acct.AccountName);
+                int index = clbSteamAccounts.Items.Add(label);
+                clbSteamAccounts.SetItemCheckState(index,
+                    Program.selectedSteamAccountIds.Contains(acct.AccountId) ? CheckState.Checked : CheckState.Unchecked);
+            }
+            clbSteamAccounts.Tag = accounts; // stash for save lookup
+        }
+
+        private void SaveSelectedSteamAccounts()
+        {
+            var accounts = clbSteamAccounts.Tag as List<Program.SteamAccountInfo>;
+            if (accounts == null) return;
+
+            var selected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < clbSteamAccounts.Items.Count; i++)
+            {
+                if (clbSteamAccounts.GetItemChecked(i) && i < accounts.Count)
+                {
+                    selected.Add(accounts[i].AccountId);
+                }
+            }
+            Program.selectedSteamAccountIds = selected;
+            SavePaths();
         }
 
         private void SavePaths()
