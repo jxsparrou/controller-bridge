@@ -1232,7 +1232,7 @@ partial class Program
                 return;
             }
 
-            var vdfFiles = Program.FindShortcutsVdfFiles();
+            var vdfFiles = Program.FindShortcutsVdfFiles(true);
             if (vdfFiles.Count == 0)
             {
                 MessageBox.Show(
@@ -1389,7 +1389,7 @@ partial class Program
                 return;
             }
 
-            var vdfFiles = Program.FindShortcutsVdfFiles();
+            var vdfFiles = Program.FindShortcutsVdfFiles(true);
             if (vdfFiles.Count == 0)
             {
                 MessageBox.Show(
@@ -1668,7 +1668,7 @@ partial class Program
                 return;
             }
 
-            var vdfFiles = Program.FindShortcutsVdfFiles();
+            var vdfFiles = Program.FindShortcutsVdfFiles(true);
             if (vdfFiles.Count == 0)
             {
                 MessageBox.Show(
