@@ -106,6 +106,28 @@ partial class Program
         return paths;
     }
 
+    public static List<string> FindShortcutsVdfFiles(bool selectedOnly)
+    {
+        var allPaths = FindShortcutsVdfFiles();
+        if (!selectedOnly || selectedSteamAccountIds.Count == 0)
+        {
+            return allPaths;
+        }
+
+        var filtered = new List<string>();
+        foreach (string vdfPath in allPaths)
+        {
+            // vdfPath looks like <steamPath>\userdata\<accountid>\config\shortcuts.vdf
+            string accountDir = Directory.GetParent(Path.GetDirectoryName(vdfPath)).FullName;
+            string accountId = Path.GetFileName(accountDir);
+            if (selectedSteamAccountIds.Contains(accountId))
+            {
+                filtered.Add(vdfPath);
+            }
+        }
+        return filtered;
+    }
+
     private class LoginUserEntry
     {
         public string AccountName;
