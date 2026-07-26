@@ -162,6 +162,18 @@ partial class Program
     /// </summary>
     internal static int FindMatchingProcess(string exeName, string installDir, int maxRetries, int retryDelayMs)
     {
+        return FindMatchingProcess(exeName, installDir, maxRetries, retryDelayMs, null);
+    }
+
+    /// <summary>
+    /// Overload that additionally constrains the installDir fallback match to processes that
+    /// started at or after <paramref name="minStartTime"/> (when a candidate's StartTime can be
+    /// read at all). This prevents a long-lived, unrelated helper process (anti-cheat service,
+    /// crash reporter, updater) still running under the game's install directory from being
+    /// mistaken for a genuine launcher handoff once the actual game has already exited.
+    /// </summary>
+    internal static int FindMatchingProcess(string exeName, string installDir, int maxRetries, int retryDelayMs, DateTime? minStartTime)
+    {
         for (int retry = 0; retry < maxRetries; retry++)
         {
             try
@@ -181,7 +193,7 @@ partial class Program
             {
                 try
                 {
-                    var pathPids = FindProcessesByInstallPath(installDir);
+                    var pathPids = FindProcessesByInstallPath(installDir, minStartTime);
                     if (pathPids.Count > 0)
                     {
                         return pathPids[0];
@@ -233,6 +245,7 @@ partial class Program
 
         Log("Monitoring process PID=" + processId + " for exit...");
         int currentPid = processId;
+        bool firstExitSearchDone = false;
 
         while (true)
         {
@@ -265,7 +278,18 @@ partial class Program
             }
 
             Log("Process PID=" + currentPid + " exited. Checking for a launcher handoff...");
-            int replacementPid = FindMatchingProcess(exeName, installDir, 45, 2000);
+
+            // Multi-stage launchers (e.g. Epic launcher stub -> EAC bootstrapper -> real game)
+            // hand off early in the session, so give the FIRST post-exit search a generous
+            // budget. Any SUBSEQUENT exit is far more likely to be the genuine end of the
+            // session, so use a short budget there to avoid delaying SISR/VIIPER teardown by
+            // ~90s on every normal game quit.
+            int maxRetries = firstExitSearchDone ? 3 : 45;
+            int retryDelayMs = firstExitSearchDone ? 1000 : 2000;
+            DateTime exitTime = DateTime.Now;
+            firstExitSearchDone = true;
+
+            int replacementPid = FindMatchingProcess(exeName, installDir, maxRetries, retryDelayMs, exitTime);
             if (replacementPid > 0)
             {
                 Log("Found replacement process (handoff): PID=" + replacementPid);
@@ -528,8 +552,13 @@ foreach ($app in $installedapps) {
 
     /// <summary>
     /// Finds all running processes whose executable path is within the given directory.
+    /// If minStartTime is given, candidates whose StartTime can be determined and predates it
+    /// are excluded — this avoids re-adopting a long-lived helper process (anti-cheat service,
+    /// crash reporter, updater) that was already running under the install directory before the
+    /// previously-tracked process exited. Candidates whose StartTime can't be read (e.g.
+    /// Win32Exception due to access restrictions) are kept, since we can't rule them out.
     /// </summary>
-    private static List<int> FindProcessesByInstallPath(string installDir)
+    private static List<int> FindProcessesByInstallPath(string installDir, DateTime? minStartTime = null)
     {
         var pids = new List<int>();
         if (string.IsNullOrEmpty(installDir) || !Directory.Exists(installDir)) return pids;
@@ -546,6 +575,22 @@ foreach ($app in $installedapps) {
                         string procPath = proc.MainModule.FileName.ToLowerInvariant();
                         if (procPath.StartsWith(dirPrefix))
                         {
+                            if (minStartTime.HasValue)
+                            {
+                                try
+                                {
+                                    if (proc.StartTime < minStartTime.Value)
+                                    {
+                                        continue; // predates the exit we're searching after — not a handoff
+                                    }
+                                }
+                                catch
+                                {
+                                    // StartTime unavailable (e.g. Win32Exception) — can't rule it
+                                    // out, so keep it and rely on the caller's retry budget.
+                                }
+                            }
+
                             pids.Add(proc.Id);
                             Log("Found game process by install path: " + proc.ProcessName + " PID=" + proc.Id + " (" + proc.MainModule.FileName + ")");
                         }
