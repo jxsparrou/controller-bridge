@@ -513,27 +513,6 @@ partial class Program
                     lock (_sgdbLock)
                     {
                         DownloadAsset(client, "https://www.steamgriddb.com/api/v2/grids/game/" + gameId + "?dimensions=600x900,342x482,660x930", gridBasePath);
-                        System.Threading.Thread.Sleep(1000);
-                    }
-
-                    // 3. Fetch & Download Heroes
-                    lock (_sgdbLock)
-                    {
-                        DownloadAsset(client, "https://www.steamgriddb.com/api/v2/heroes/game/" + gameId, Path.Combine(gridDir, appId + "_hero"));
-                        System.Threading.Thread.Sleep(1000);
-                    }
-
-                    // 4. Fetch & Download Logos
-                    lock (_sgdbLock)
-                    {
-                        DownloadAsset(client, "https://www.steamgriddb.com/api/v2/logos/game/" + gameId, Path.Combine(gridDir, appId + "_logo"));
-                        System.Threading.Thread.Sleep(1000);
-                    }
-
-                    // 5. Fetch & Download Icons
-                    lock (_sgdbLock)
-                    {
-                        DownloadAsset(client, "https://www.steamgriddb.com/api/v2/icons/game/" + gameId, Path.Combine(gridDir, appId + "-icon"), true);
                     }
 
                     // Copy grid to both {appid}.png and {appid}p.png so Steam finds it
@@ -556,9 +535,8 @@ partial class Program
                         File.Copy(gridPng, gridPPng, true);
                     }
 
-                    // 6. Update the shortcut's icon field to point to the downloaded icon (fall back to grid artwork)
-                    string iconFile = Path.Combine(gridDir, appId + "-icon.ico");
-                    string gridImage = File.Exists(iconFile) ? iconFile : Path.Combine(gridDir, appId + ".png");
+                    // 3. Update the shortcut's icon field to point to the downloaded grid (fall back to icon later)
+                    string gridImage = Path.Combine(gridDir, appId + ".png");
                     if (File.Exists(gridImage))
                     {
                         foreach (var child in root.Children)
@@ -574,11 +552,60 @@ partial class Program
                                 break;
                             }
                         }
-                        // Re-save VDF with updated icon
                         var saveItem = new SteamShortcutItem { VdfPath = vdfPath, RootElement = root };
                         SaveSteamShortcuts(new List<SteamShortcutItem> { saveItem });
                         Log("Updated icon field for: " + appName);
                     }
+
+                    // 4. Fetch & Download Heroes (best effort)
+                    try
+                    {
+                        lock (_sgdbLock)
+                        {
+                            DownloadAsset(client, "https://www.steamgriddb.com/api/v2/heroes/game/" + gameId, Path.Combine(gridDir, appId + "_hero"));
+                        }
+                    }
+                    catch (Exception) { }
+
+                    // 5. Fetch & Download Logos (best effort)
+                    try
+                    {
+                        lock (_sgdbLock)
+                        {
+                            DownloadAsset(client, "https://www.steamgriddb.com/api/v2/logos/game/" + gameId, Path.Combine(gridDir, appId + "_logo"));
+                        }
+                    }
+                    catch (Exception) { }
+
+                    // 6. Fetch & Download Icons (best effort, update icon field if found)
+                    try
+                    {
+                        lock (_sgdbLock)
+                        {
+                            DownloadAsset(client, "https://www.steamgriddb.com/api/v2/icons/game/" + gameId, Path.Combine(gridDir, appId + "-icon"), true);
+                        }
+                        string iconFile = Path.Combine(gridDir, appId + "-icon.ico");
+                        if (File.Exists(iconFile))
+                        {
+                            foreach (var child in root.Children)
+                            {
+                                var appNameEl = child.Children.Find(c => c.Name == "AppName");
+                                if (appNameEl != null && appNameEl.StringValue == appName)
+                                {
+                                    var iconEl = child.Children.Find(c => c.Name == "icon");
+                                    if (iconEl != null)
+                                    {
+                                        iconEl.StringValue = iconFile;
+                                    }
+                                    break;
+                                }
+                            }
+                            var saveItem = new SteamShortcutItem { VdfPath = vdfPath, RootElement = root };
+                            SaveSteamShortcuts(new List<SteamShortcutItem> { saveItem });
+                            Log("Updated icon field to icon for: " + appName);
+                        }
+                    }
+                    catch (Exception) { }
 
                     Log("SteamGridDB artwork download completed for: " + appName);
                 }
