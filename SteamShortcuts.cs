@@ -445,6 +445,33 @@ partial class Program
         root.Children.Remove(shortcutToRemove);
     }
 
+    /// <summary>
+    /// Triggers SteamGridDB artwork download for existing shortcuts that have an empty icon field.
+    /// Called on startup so existing shortcuts get proper icons without needing to be re-added.
+    /// </summary>
+    public static void RefreshExistingArtwork(string vdfPath, VdfElement root, List<SteamShortcutItem> shortcuts)
+    {
+        if (string.IsNullOrEmpty(sgdbApiKey)) return;
+
+        string myExe = Process.GetCurrentProcess().MainModule.FileName;
+        foreach (var item in shortcuts)
+        {
+            if (item.ShortcutElement == null) continue;
+            var iconEl = item.ShortcutElement.Children.Find(c => c.Name == "icon");
+            if (iconEl != null && !string.IsNullOrEmpty(iconEl.StringValue)) continue;
+
+            string trimmedExe = item.Exe.Replace("\"", "").Trim();
+            bool isBridge = trimmedExe.EndsWith("sBridge.exe", StringComparison.OrdinalIgnoreCase) ||
+                            trimmedExe.Equals(myExe, StringComparison.OrdinalIgnoreCase);
+            bool isEpicGame = !string.IsNullOrEmpty(item.LaunchOptions) && item.LaunchOptions.StartsWith("epic:", StringComparison.OrdinalIgnoreCase);
+            if (!isBridge && !isEpicGame) continue;
+
+            string appName = item.AppName;
+            uint appId = CalculateAppId(appName, myExe);
+            DownloadSteamGridArtwork(vdfPath, appName, appId, root);
+        }
+    }
+
     private static readonly object _sgdbLock = new object();
 
     public static void DownloadSteamGridArtwork(string vdfPath, string appName, uint appId, VdfElement root)

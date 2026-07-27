@@ -812,6 +812,20 @@ partial class Program
             Program.sisrPath = txtSisr.Text.Trim();
 
             currentShortcuts = Program.LoadSteamShortcuts();
+
+            // Refresh artwork for existing shortcuts that have empty icon fields
+            var vdfGroups = new Dictionary<string, Program.VdfElement>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in currentShortcuts)
+            {
+                if (item.RootElement != null && !string.IsNullOrEmpty(item.VdfPath))
+                    vdfGroups[item.VdfPath] = item.RootElement;
+            }
+            foreach (var pair in vdfGroups)
+            {
+                var shortcutsForVdf = currentShortcuts.FindAll(s => s.VdfPath == pair.Key);
+                Program.RefreshExistingArtwork(pair.Key, pair.Value, shortcutsForVdf);
+            }
+
             string myExe = Process.GetCurrentProcess().MainModule.FileName;
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
