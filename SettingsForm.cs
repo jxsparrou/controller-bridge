@@ -16,12 +16,13 @@ partial class Program
         private Button btnBrowseSisr;
         private Label lblSisrWarning;
         private TextBox txtSgdbKey;
+        private CheckedListBox clbSteamAccounts;
 
         private TabControl tabControl;
         private TabPage pageSteam;
         private TabPage pageUwp;
 
-        // Tab 3 Controls (Add Custom Games)
+        // Tab 4 Controls (Add Custom Games)
         private TextBox txtCustomName;
         private TextBox txtCustomPath;
         private TextBox txtCustomArgs;
@@ -49,8 +50,15 @@ partial class Program
         private Button btnScanUWP;
         private Button btnAddSelected;
 
+        // Tab 3 Controls (Add Epic Games)
+        private ListView lstEpicGames;
+        private Label lblEpicStatus;
+        private Button btnScanEpic;
+        private Button btnAddEpicSelected;
+
         private List<SteamShortcutItem> currentShortcuts = new List<SteamShortcutItem>();
         private List<UWPAppInfo> scannedApps = new List<UWPAppInfo>();
+        private List<EpicGameInfo> scannedEpicGames = new List<EpicGameInfo>();
 
         // Colors
         private Color bgDark = Color.FromArgb(28, 28, 30);
@@ -300,7 +308,60 @@ partial class Program
             btnAddSelected.Click += (s, e) => AddSelectedToSteam();
             pageUwp.Controls.Add(btnAddSelected);
 
-            // Tab 3: Add Custom Game
+            // Tab 3: Add Epic Games
+            TabPage pageEpic = new TabPage("Add Epic Games");
+            pageEpic.BackColor = bgPanel;
+            tabControl.TabPages.Add(pageEpic);
+
+            lblEpicStatus = new Label();
+            lblEpicStatus.Text = "Click \"Scan for Epic Games\" to find installed Epic Games Store games.";
+            lblEpicStatus.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblEpicStatus.Location = new Point(15, 15);
+            lblEpicStatus.Size = new Size(440, 20);
+            lblEpicStatus.ForeColor = textMuted;
+            pageEpic.Controls.Add(lblEpicStatus);
+
+            btnScanEpic = new Button();
+            btnScanEpic.Text = "Scan for Epic Games";
+            btnScanEpic.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnScanEpic.FlatStyle = FlatStyle.Flat;
+            btnScanEpic.FlatAppearance.BorderSize = 0;
+            btnScanEpic.BackColor = accentBlue;
+            btnScanEpic.ForeColor = Color.White;
+            btnScanEpic.Location = new Point(465, 10);
+            btnScanEpic.Size = new Size(145, 25);
+            btnScanEpic.Click += (s, e) => PerformEpicScan();
+            pageEpic.Controls.Add(btnScanEpic);
+
+            lstEpicGames = new ListView();
+            lstEpicGames.View = View.Details;
+            lstEpicGames.CheckBoxes = true;
+            lstEpicGames.FullRowSelect = true;
+            lstEpicGames.GridLines = false;
+            lstEpicGames.BackColor = bgInput;
+            lstEpicGames.ForeColor = Color.White;
+            lstEpicGames.BorderStyle = BorderStyle.FixedSingle;
+            lstEpicGames.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lstEpicGames.Location = new Point(15, 45);
+            lstEpicGames.Size = new Size(595, 200);
+            lstEpicGames.Columns.Add("Game Name", 220);
+            lstEpicGames.Columns.Add("Epic AppName", 230);
+            lstEpicGames.Columns.Add("Status", 130);
+            pageEpic.Controls.Add(lstEpicGames);
+
+            btnAddEpicSelected = new Button();
+            btnAddEpicSelected.Text = "Add Selected to Steam";
+            btnAddEpicSelected.Font = new Font("Segoe UI", 9, FontStyle.Bold);
+            btnAddEpicSelected.FlatStyle = FlatStyle.Flat;
+            btnAddEpicSelected.FlatAppearance.BorderSize = 0;
+            btnAddEpicSelected.BackColor = accentGreen;
+            btnAddEpicSelected.ForeColor = Color.White;
+            btnAddEpicSelected.Location = new Point(15, 255);
+            btnAddEpicSelected.Size = new Size(300, 30);
+            btnAddEpicSelected.Click += (s, e) => AddSelectedEpicToSteam();
+            pageEpic.Controls.Add(btnAddEpicSelected);
+
+            // Tab 4: Add Custom Game
             TabPage pageCustom = new TabPage("Add Custom Game");
             pageCustom.BackColor = bgPanel;
             tabControl.TabPages.Add(pageCustom);
@@ -431,7 +492,7 @@ partial class Program
             btnAddCustom.Click += (s, e) => AddCustomGameToSteam();
             pageCustom.Controls.Add(btnAddCustom);
 
-            // Tab 4: Global Settings
+            // Tab 5: Global Settings
             TabPage pageSettings = new TabPage("Global Settings");
             pageSettings.BackColor = bgPanel;
             tabControl.TabPages.Add(pageSettings);
@@ -519,11 +580,47 @@ partial class Program
             txtSgdbKey.Leave += (s, e) => SavePaths();
             pageSettings.Controls.Add(txtSgdbKey);
 
+            // Steam Accounts checklist
+            Label lblSteamAccounts = new Label();
+            lblSteamAccounts.Text = "Steam Accounts to add shortcuts to (none checked = all accounts):";
+            lblSteamAccounts.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            lblSteamAccounts.Location = new Point(15, 195);
+            lblSteamAccounts.Size = new Size(500, 20);
+            lblSteamAccounts.ForeColor = textLight;
+            pageSettings.Controls.Add(lblSteamAccounts);
+
+            clbSteamAccounts = new CheckedListBox();
+            clbSteamAccounts.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            clbSteamAccounts.BackColor = bgInput;
+            clbSteamAccounts.ForeColor = Color.White;
+            clbSteamAccounts.BorderStyle = BorderStyle.FixedSingle;
+            clbSteamAccounts.Location = new Point(15, 215);
+            clbSteamAccounts.Size = new Size(500, 60);
+            clbSteamAccounts.CheckOnClick = true;
+            clbSteamAccounts.ItemCheck += (s, e) =>
+            {
+                // Skip during programmatic population (LoadSteamAccountsList runs before the
+                // form handle exists on first load, and BeginInvoke would throw; it's also
+                // pointless to save while we're the ones setting check states).
+                if (isUpdatingUi) return;
+                // ItemCheck fires before CheckedItems updates, so defer to after this event completes
+                this.BeginInvoke((MethodInvoker)delegate { SaveSelectedSteamAccounts(); });
+            };
+            pageSettings.Controls.Add(clbSteamAccounts);
+
+            Button btnRefreshAccounts = new Button();
+            btnRefreshAccounts.Text = "Refresh";
+            btnRefreshAccounts.Font = new Font("Segoe UI", 9, FontStyle.Regular);
+            btnRefreshAccounts.Location = new Point(525, 215);
+            btnRefreshAccounts.Size = new Size(95, 25);
+            btnRefreshAccounts.Click += (s, e) => LoadSteamAccountsList();
+            pageSettings.Controls.Add(btnRefreshAccounts);
+
             // Global SISR Warning Label
             lblSisrWarning = new Label();
             lblSisrWarning.Text = "Checking SISR status...";
             lblSisrWarning.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            lblSisrWarning.Location = new Point(15, 205);
+            lblSisrWarning.Location = new Point(15, 285);
             lblSisrWarning.Size = new Size(605, 20);
             pageSettings.Controls.Add(lblSisrWarning);
 
@@ -535,7 +632,7 @@ partial class Program
             btnMigrate.FlatAppearance.BorderSize = 0;
             btnMigrate.BackColor = Color.FromArgb(44, 44, 48);
             btnMigrate.ForeColor = Color.White;
-            btnMigrate.Location = new Point(15, 245);
+            btnMigrate.Location = new Point(15, 315);
             btnMigrate.Size = new Size(605, 35);
             btnMigrate.Click += (s, e) => MigrateFromUwpHook();
             pageSettings.Controls.Add(btnMigrate);
@@ -589,8 +686,49 @@ partial class Program
             txtSisr.Text = Program.sisrPath;
             txtSisrArgs.Text = Program.sisrArguments;
             txtSgdbKey.Text = Program.sgdbApiKey;
+            LoadSteamAccountsList();
             UpdateSisrStatus();
             isUpdatingUi = false;
+        }
+
+        private void LoadSteamAccountsList()
+        {
+            clbSteamAccounts.Items.Clear();
+            var accounts = Program.FindSteamAccounts();
+            foreach (var acct in accounts)
+            {
+                string label;
+                if (acct.PersonaName == acct.AccountId ||
+                    (string.IsNullOrWhiteSpace(acct.PersonaName) && string.IsNullOrWhiteSpace(acct.AccountName)))
+                {
+                    label = acct.AccountId;
+                }
+                else
+                {
+                    label = string.Format("{0} ({1})", acct.PersonaName, acct.AccountName);
+                }
+                int index = clbSteamAccounts.Items.Add(label);
+                clbSteamAccounts.SetItemCheckState(index,
+                    Program.selectedSteamAccountIds.Contains(acct.AccountId) ? CheckState.Checked : CheckState.Unchecked);
+            }
+            clbSteamAccounts.Tag = accounts; // stash for save lookup
+        }
+
+        private void SaveSelectedSteamAccounts()
+        {
+            var accounts = clbSteamAccounts.Tag as List<Program.SteamAccountInfo>;
+            if (accounts == null) return;
+
+            var selected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < clbSteamAccounts.Items.Count; i++)
+            {
+                if (clbSteamAccounts.GetItemChecked(i) && i < accounts.Count)
+                {
+                    selected.Add(accounts[i].AccountId);
+                }
+            }
+            Program.selectedSteamAccountIds = selected;
+            SavePaths();
         }
 
         private void SavePaths()
@@ -674,7 +812,22 @@ partial class Program
             Program.sisrPath = txtSisr.Text.Trim();
 
             currentShortcuts = Program.LoadSteamShortcuts();
+
+            // Refresh artwork for existing shortcuts that have empty icon fields
+            var vdfGroups = new Dictionary<string, Program.VdfElement>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in currentShortcuts)
+            {
+                if (item.RootElement != null && !string.IsNullOrEmpty(item.VdfPath))
+                    vdfGroups[item.VdfPath] = item.RootElement;
+            }
+            foreach (var pair in vdfGroups)
+            {
+                var shortcutsForVdf = currentShortcuts.FindAll(s => s.VdfPath == pair.Key);
+                Program.RefreshExistingArtwork(pair.Key, pair.Value, shortcutsForVdf);
+            }
+
             string myExe = Process.GetCurrentProcess().MainModule.FileName;
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var item in currentShortcuts)
             {
@@ -684,10 +837,13 @@ partial class Program
                                 trimmedExe.EndsWith("sBridge.exe", StringComparison.OrdinalIgnoreCase) ||
                                 trimmedExe.Equals(myExe, StringComparison.OrdinalIgnoreCase);
                 bool hasAumidPattern = !string.IsNullOrEmpty(item.LaunchOptions) && item.LaunchOptions.Contains("_") && item.LaunchOptions.Contains("!");
+                bool isEpicGame = !string.IsNullOrEmpty(item.LaunchOptions) && item.LaunchOptions.StartsWith("epic:", StringComparison.OrdinalIgnoreCase);
 
-                // Show UWP/UWPHook games or bridged ones
-                if (isUWPHook || isBridge || hasAumidPattern)
+                if (isUWPHook || isBridge || hasAumidPattern || isEpicGame)
                 {
+                    string dedupKey = item.AppName + "|" + item.Exe + "|" + item.LaunchOptions;
+                    if (!seen.Add(dedupKey))
+                        continue;
                     ListViewItem lvItem = new ListViewItem(item.AppName);
                     
                     string targetStr = "";
@@ -713,6 +869,17 @@ partial class Program
                         }
                         statusStr = gameSisr ? "SISR Enabled" : "SISR Disabled";
                     }
+                    else if (isEpicGame)
+                    {
+                        string gameId = Program.ParseFirstArgument(item.LaunchOptions);
+                        bool gameSisr = Program.sisrEnabled;
+                        bool overrideVal;
+                        if (!string.IsNullOrEmpty(gameId) && Program.perGameSisr.TryGetValue(gameId, out overrideVal))
+                        {
+                            gameSisr = overrideVal;
+                        }
+                        statusStr = gameSisr ? "Epic + SISR" : "Epic Only";
+                    }
                     else if (isUWPHook)
                     {
                         statusStr = "Via UWPHook (migrate)";
@@ -730,6 +897,17 @@ partial class Program
                             gameSisr = overrideVal;
                         }
                         subItem.ForeColor = gameSisr ? accentGreen : accentRed;
+                    }
+                    else if (isEpicGame)
+                    {
+                        string gameId = Program.ParseFirstArgument(item.LaunchOptions);
+                        bool gameSisr = Program.sisrEnabled;
+                        bool overrideVal;
+                        if (!string.IsNullOrEmpty(gameId) && Program.perGameSisr.TryGetValue(gameId, out overrideVal))
+                        {
+                            gameSisr = overrideVal;
+                        }
+                        subItem.ForeColor = gameSisr ? accentGreen : Color.FromArgb(243, 156, 18);
                     }
                     else if (isUWPHook)
                     {
@@ -761,7 +939,7 @@ partial class Program
             
             if (lstGames.Items.Count == 0)
             {
-                ListViewItem emptyItem = new ListViewItem("No UWP/UWPHook games found in Steam shortcuts.");
+                ListViewItem emptyItem = new ListViewItem("No UWP/UWPHook/Epic games found in Steam shortcuts.");
                 emptyItem.SubItems.Add("");
                 emptyItem.SubItems.Add("");
                 lstGames.Items.Add(emptyItem);
@@ -821,10 +999,10 @@ partial class Program
                         string trimmedExe = exeChild.StringValue.Replace("\"", "").Trim();
                         if (trimmedExe.EndsWith("UWPHook.exe", StringComparison.OrdinalIgnoreCase))
                         {
-                            exeChild.StringValue = "\"" + myExe + "\"";
+                            exeChild.StringValue = myExe;
                             if (startDirChild != null)
                             {
-                                startDirChild.StringValue = "\"" + myDir.TrimEnd('\\') + "\"";
+                                startDirChild.StringValue = myDir.TrimEnd('\\');
                             }
                             modifiedItems.Add(item);
                             count++;
@@ -956,34 +1134,68 @@ partial class Program
                 "Confirm Removal", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if (confirm != DialogResult.Yes) return;
 
-            // 4. Remove each checked shortcut from its root VDF element
-            var modifiedRoots = new Dictionary<string, KeyValuePair<VdfElement, string>>();
+            // 4. Remove each checked shortcut from ALL VDFs (not just the one it was loaded from)
             int removed = 0;
+            var allVdfPaths = Program.FindShortcutsVdfFiles();
 
+            // Collect shortcut keys to remove (AppName + Exe + LaunchOptions)
+            var toRemove = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (ListViewItem lvItem in lstGames.Items)
             {
                 var item = lvItem.Tag as SteamShortcutItem;
                 if (lvItem.Checked && item != null)
                 {
-                    Program.RemoveShortcutFromSteam(item.RootElement, item.ShortcutElement);
-                    if (!modifiedRoots.ContainsKey(item.VdfPath))
-                    {
-                        modifiedRoots[item.VdfPath] = new KeyValuePair<VdfElement, string>(item.RootElement, item.VdfPath);
-                    }
-                    removed++;
+                    toRemove.Add(item.AppName + "|" + item.Exe + "|" + item.LaunchOptions);
                 }
             }
 
-            // 5. Save modified VDFs
+            // Remove matching shortcuts from all VDFs
+            foreach (string vdfPath in allVdfPaths)
+            {
+                VdfElement root;
+                try
+                {
+                    byte[] bytes = File.ReadAllBytes(vdfPath);
+                    using (var ms = new MemoryStream(bytes))
+                    using (var reader = new BinaryReader(ms))
+                    {
+                        reader.ReadByte();
+                        string rootName = Program.ReadNullTerminatedString(reader);
+                        root = Program.ReadMap(reader, rootName);
+                    }
+                }
+                catch { continue; }
+
+                bool modified = false;
+                for (int i = root.Children.Count - 1; i >= 0; i--)
+                {
+                    var child = root.Children[i];
+                    var appNameEl = child.Children.Find(c => c.Name == "AppName");
+                    var exeEl = child.Children.Find(c => c.Name == "Exe");
+                    var launchEl = child.Children.Find(c => c.Name == "LaunchOptions");
+                    string appNameVal = appNameEl != null ? appNameEl.StringValue : "";
+                    string exeVal = exeEl != null ? exeEl.StringValue : "";
+                    string launchVal = launchEl != null ? launchEl.StringValue : "";
+                    string key = appNameVal + "|" + exeVal + "|" + launchVal;
+                    if (toRemove.Contains(key))
+                    {
+                        root.Children.RemoveAt(i);
+                        modified = true;
+                        removed++;
+                    }
+                }
+
+                if (modified)
+                {
+                    var dummyItem = new SteamShortcutItem { VdfPath = vdfPath, RootElement = root };
+                    Program.SaveSteamShortcuts(new List<SteamShortcutItem> { dummyItem });
+                }
+            }
+
             if (removed > 0)
             {
-                var itemsToSave = new List<SteamShortcutItem>();
-                foreach (var pair in modifiedRoots)
-                {
-                    itemsToSave.Add(new SteamShortcutItem { VdfPath = pair.Key, RootElement = pair.Value.Key });
-                }
-                Program.SaveSteamShortcuts(itemsToSave);
-                MessageBox.Show(string.Format("Successfully removed {0} shortcut(s) from Steam.", removed),
+                int uniqueRemoved = removed / allVdfPaths.Count;
+                MessageBox.Show(string.Format("Successfully removed {0} shortcut(s) from Steam.", uniqueRemoved),
                     "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
 
@@ -1030,9 +1242,8 @@ partial class Program
 
         private void AddSelectedToSteam()
         {
-            SavePaths(); // Ensure API Key and path configs are saved before importing
+            SavePaths();
 
-            // Check Steam is not running
             bool steamRunning = Process.GetProcessesByName("steam").Length > 0;
             if (steamRunning)
             {
@@ -1042,7 +1253,7 @@ partial class Program
                 return;
             }
 
-            var vdfFiles = Program.FindShortcutsVdfFiles();
+            var vdfFiles = Program.FindShortcutsVdfFiles(true);
             if (vdfFiles.Count == 0)
             {
                 MessageBox.Show(
@@ -1051,52 +1262,229 @@ partial class Program
                 return;
             }
 
-            string vdfPath = vdfFiles[0];
-
-            VdfElement root;
-            try
-            {
-                byte[] bytes = File.ReadAllBytes(vdfPath);
-                using (var ms = new MemoryStream(bytes))
-                using (var reader = new BinaryReader(ms))
-                {
-                    byte firstByte = reader.ReadByte();
-                    string rootName = Program.ReadNullTerminatedString(reader);
-                    root = Program.ReadMap(reader, rootName);
-                }
-            }
-            catch (Exception ex)
-            {
-                root = new VdfElement { Type = 0x00, Name = "shortcuts" };
-                Program.Log("Creating new shortcuts.vdf structure: " + ex.Message);
-            }
-
-            int count = 0;
+            int gameCount = 0;
             foreach (ListViewItem lvItem in lstApps.Items)
             {
-                var app = lvItem.Tag as UWPAppInfo;
-                if (lvItem.Checked && app != null)
+                if (lvItem.Checked && lvItem.Tag as UWPAppInfo != null && lvItem.SubItems[2].Text != "Already in Steam")
+                    gameCount++;
+            }
+
+            foreach (string vdfPath in vdfFiles)
+            {
+                VdfElement root;
+                try
                 {
-                    if (lvItem.SubItems[2].Text != "Already in Steam")
+                    byte[] bytes = File.ReadAllBytes(vdfPath);
+                    using (var ms = new MemoryStream(bytes))
+                    using (var reader = new BinaryReader(ms))
                     {
-                        Program.AddShortcutToSteam(vdfPath, root, app.Name, app.AUMID, app.Executable);
-                        count++;
+                        byte firstByte = reader.ReadByte();
+                        string rootName = Program.ReadNullTerminatedString(reader);
+                        root = Program.ReadMap(reader, rootName);
                     }
+                }
+                catch (Exception ex)
+                {
+                    root = new VdfElement { Type = 0x00, Name = "shortcuts" };
+                    Program.Log("Creating new shortcuts.vdf structure: " + ex.Message);
+                }
+
+                foreach (ListViewItem lvItem in lstApps.Items)
+                {
+                    var app = lvItem.Tag as UWPAppInfo;
+                    if (lvItem.Checked && app != null)
+                    {
+                        if (lvItem.SubItems[2].Text != "Already in Steam")
+                        {
+                            Program.AddShortcutToSteam(vdfPath, root, app.Name, app.AUMID, app.Executable);
+                        }
+                    }
+                }
+
+                if (gameCount > 0)
+                {
+                    var dummyItem = new SteamShortcutItem { VdfPath = vdfPath, RootElement = root };
+                    Program.SaveSteamShortcuts(new List<SteamShortcutItem> { dummyItem });
                 }
             }
 
-            if (count > 0)
+            if (gameCount > 0)
             {
-                var dummyItem = new SteamShortcutItem { VdfPath = vdfPath, RootElement = root };
-                Program.SaveSteamShortcuts(new List<SteamShortcutItem> { dummyItem });
-
                 MessageBox.Show(
-                    string.Format("Successfully added {0} app(s) to Steam!\n\nRestart Steam to see them in your library.", count),
+                    string.Format("Successfully added {0} app(s) to Steam!\n\nRestart Steam to see them in your library.", gameCount),
                     "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else
             {
                 MessageBox.Show("No new apps were selected to add.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+
+            RefreshShortcutsList();
+        }
+
+        private void PerformEpicScan()
+        {
+            lblEpicStatus.Text = "Scanning for Epic Games... this may take a moment.";
+            lblEpicStatus.ForeColor = Color.FromArgb(255, 193, 7);
+            btnScanEpic.Enabled = false;
+            lstEpicGames.Items.Clear();
+            this.Refresh();
+
+            scannedEpicGames = Program.ScanInstalledEpicGames();
+
+            // Build a set of AppNames already in Steam for quick lookup
+            var existingAppNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var existingInstallPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var shortcut in currentShortcuts)
+            {
+                if (!string.IsNullOrEmpty(shortcut.LaunchOptions))
+                {
+                    string firstToken = shortcut.LaunchOptions.Split(' ')[0];
+                    if (firstToken.StartsWith("epic:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        existingAppNames.Add(firstToken.Substring(5));
+                    }
+                    else if (firstToken.Contains("com.epicgames.launcher://"))
+                    {
+                        // Extract AppName from protocol URL: com.epicgames.launcher://apps/<namespace>%3A...%3A<Sugar>?action=launch
+                        var match = System.Text.RegularExpressions.Regex.Match(firstToken, @"%3A(\w+)\?action=launch");
+                        if (match.Success)
+                        {
+                            existingAppNames.Add(match.Groups[1].Value);
+                        }
+                    }
+                }
+
+                // Also check Exe path for Epic games added as custom shortcuts
+                if (!string.IsNullOrEmpty(shortcut.Exe))
+                {
+                    string exePath = shortcut.Exe.Replace("\"", "");
+                    if (exePath.Contains("EpicGames") || exePath.Contains("Epic Games"))
+                    {
+                        existingInstallPaths.Add(exePath);
+                    }
+                }
+            }
+
+            foreach (var game in scannedEpicGames)
+            {
+                bool alreadyInSteam = existingAppNames.Contains(game.AppName);
+
+                // Also check if the exe is already in Steam as a custom shortcut
+                if (!alreadyInSteam && !string.IsNullOrEmpty(game.LaunchExecutable) && !string.IsNullOrEmpty(game.InstallLocation))
+                {
+                    string fullExe = Path.Combine(game.InstallLocation, game.LaunchExecutable);
+                    foreach (var existingPath in existingInstallPaths)
+                    {
+                        if (existingPath.Equals(fullExe, StringComparison.OrdinalIgnoreCase))
+                        {
+                            alreadyInSteam = true;
+                            break;
+                        }
+                    }
+                }
+
+                ListViewItem item = new ListViewItem(game.Name);
+                item.SubItems.Add(game.AppName);
+                item.SubItems.Add(alreadyInSteam ? "Already in Steam" : "Not added");
+                item.Tag = game;
+                item.Checked = false;
+                lstEpicGames.Items.Add(item);
+            }
+
+            lblEpicStatus.Text = string.Format("Found {0} Epic Games. Select the ones you want to add.", scannedEpicGames.Count);
+            lblEpicStatus.ForeColor = accentGreen;
+            btnScanEpic.Enabled = true;
+        }
+
+        private void AddSelectedEpicToSteam()
+        {
+            SavePaths();
+
+            bool steamRunning = Process.GetProcessesByName("steam").Length > 0;
+            if (steamRunning)
+            {
+                MessageBox.Show(
+                    "Steam is currently running. Please close Steam before adding shortcuts.",
+                    "Steam is Running", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var vdfFiles = Program.FindShortcutsVdfFiles(true);
+            if (vdfFiles.Count == 0)
+            {
+                MessageBox.Show(
+                    "Could not find Steam's shortcuts.vdf file. Make sure Steam has been run at least once.",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            int gameCount = 0;
+            foreach (ListViewItem lvItem in lstEpicGames.Items)
+            {
+                if (lvItem.Checked && lvItem.Tag as EpicGameInfo != null && lvItem.SubItems[2].Text != "Already in Steam")
+                    gameCount++;
+            }
+
+            foreach (string vdfPath in vdfFiles)
+            {
+                VdfElement root;
+                try
+                {
+                    byte[] bytes = File.ReadAllBytes(vdfPath);
+                    using (var ms = new MemoryStream(bytes))
+                    using (var reader = new BinaryReader(ms))
+                    {
+                        byte firstByte = reader.ReadByte();
+                        string rootName = Program.ReadNullTerminatedString(reader);
+                        root = Program.ReadMap(reader, rootName);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    root = new VdfElement { Type = 0x00, Name = "shortcuts" };
+                    Program.Log("Creating new shortcuts.vdf structure: " + ex.Message);
+                }
+
+                foreach (ListViewItem lvItem in lstEpicGames.Items)
+                {
+                    var game = lvItem.Tag as EpicGameInfo;
+                    if (lvItem.Checked && game != null)
+                    {
+                        if (lvItem.SubItems[2].Text != "Already in Steam")
+                        {
+                            string epicId = "epic:" + game.AppName;
+                            string execHint = game.LaunchExecutable;
+                            if (string.IsNullOrEmpty(execHint))
+                            {
+                                execHint = game.Executable;
+                            }
+                            if (!string.IsNullOrEmpty(execHint) && (execHint.Contains("\\") || execHint.Contains("/")))
+                            {
+                                execHint = Path.GetFileName(execHint);
+                            }
+
+                            Program.AddShortcutToSteam(vdfPath, root, game.Name, epicId, execHint);
+                        }
+                    }
+                }
+
+                if (gameCount > 0)
+                {
+                    var dummyItem = new SteamShortcutItem { VdfPath = vdfPath, RootElement = root };
+                    Program.SaveSteamShortcuts(new List<SteamShortcutItem> { dummyItem });
+                }
+            }
+
+            if (gameCount > 0)
+            {
+                MessageBox.Show(
+                    string.Format("Successfully added {0} Epic game(s) to Steam!\n\nRestart Steam to see them in your library.", gameCount),
+                    "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show("No new Epic games were selected to add.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
 
             RefreshShortcutsList();
@@ -1301,7 +1689,7 @@ partial class Program
                 return;
             }
 
-            var vdfFiles = Program.FindShortcutsVdfFiles();
+            var vdfFiles = Program.FindShortcutsVdfFiles(true);
             if (vdfFiles.Count == 0)
             {
                 MessageBox.Show(
@@ -1310,37 +1698,17 @@ partial class Program
                 return;
             }
 
-            string vdfPath = vdfFiles[0];
-
-            VdfElement root;
-            try
-            {
-                byte[] bytes = File.ReadAllBytes(vdfPath);
-                using (var ms = new MemoryStream(bytes))
-                using (var reader = new BinaryReader(ms))
-                {
-                    byte firstByte = reader.ReadByte();
-                    string rootName = Program.ReadNullTerminatedString(reader);
-                    root = Program.ReadMap(reader, rootName);
-                }
-            }
-            catch (Exception ex)
-            {
-                root = new VdfElement { Type = 0x00, Name = "shortcuts" };
-                Program.Log("Creating new shortcuts.vdf structure: " + ex.Message);
-            }
-
             string unquotedPath = gamePath;
             int sisrSel = cmbCustomSisr.SelectedIndex;
-            if (sisrSel == 1) // Enabled
+            if (sisrSel == 1)
             {
                 Program.perGameSisr[unquotedPath] = true;
             }
-            else if (sisrSel == 2) // Disabled
+            else if (sisrSel == 2)
             {
                 Program.perGameSisr[unquotedPath] = false;
             }
-            else // Use Global
+            else
             {
                 if (Program.perGameSisr.ContainsKey(unquotedPath))
                 {
@@ -1368,10 +1736,31 @@ partial class Program
                 quotedPath = "\"" + quotedPath + "\"";
             }
 
-            Program.AddShortcutToSteam(vdfPath, root, appName, quotedPath, gameArgs);
+            foreach (string vdfPath in vdfFiles)
+            {
+                VdfElement root;
+                try
+                {
+                    byte[] bytes = File.ReadAllBytes(vdfPath);
+                    using (var ms = new MemoryStream(bytes))
+                    using (var reader = new BinaryReader(ms))
+                    {
+                        byte firstByte = reader.ReadByte();
+                        string rootName = Program.ReadNullTerminatedString(reader);
+                        root = Program.ReadMap(reader, rootName);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    root = new VdfElement { Type = 0x00, Name = "shortcuts" };
+                    Program.Log("Creating new shortcuts.vdf structure: " + ex.Message);
+                }
 
-            var dummyItem = new SteamShortcutItem { VdfPath = vdfPath, RootElement = root };
-            Program.SaveSteamShortcuts(new List<SteamShortcutItem> { dummyItem });
+                Program.AddShortcutToSteam(vdfPath, root, appName, quotedPath, gameArgs);
+
+                var dummyItem = new SteamShortcutItem { VdfPath = vdfPath, RootElement = root };
+                Program.SaveSteamShortcuts(new List<SteamShortcutItem> { dummyItem });
+            }
 
             MessageBox.Show(
                 string.Format("Successfully added '{0}' to Steam!\n\nRestart Steam to see it in your library.", appName),

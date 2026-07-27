@@ -34,6 +34,7 @@ partial class Program
     public static string sgdbApiKey = "";
     public static Dictionary<string, bool> perGameSisr = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
     public static Dictionary<string, string> perGameWatch = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    public static HashSet<string> selectedSteamAccountIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     [STAThread]
     static void Main(string[] args)
@@ -59,6 +60,7 @@ partial class Program
                 aumid = aumid.Replace('/', '\\');
             }
 
+            bool isEpicGame = aumid.StartsWith("epic:", StringComparison.OrdinalIgnoreCase);
             bool isCustomGame = File.Exists(aumid) || aumid.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || aumid.Contains("\\");
             string executableHint = "";
             string extraArgs = "";
@@ -66,7 +68,18 @@ partial class Program
             string watchOverride;
             bool hasWatchOverride = perGameWatch.TryGetValue(aumid, out watchOverride) && !string.IsNullOrEmpty(watchOverride);
 
-            if (isCustomGame)
+            if (isEpicGame)
+            {
+                // Epic games: args[0] = "epic:<AppName>", args[1] = executable hint
+                executableHint = hasWatchOverride ? watchOverride : (args.Length > 1 ? args[1] : "");
+                if (args.Length > 2)
+                {
+                    string[] extraParts = new string[args.Length - 2];
+                    Array.Copy(args, 2, extraParts, 0, args.Length - 2);
+                    extraArgs = string.Join(" ", extraParts);
+                }
+            }
+            else if (isCustomGame)
             {
                 executableHint = hasWatchOverride ? watchOverride : aumid;
                 if (args.Length > 1)
@@ -99,7 +112,7 @@ partial class Program
                 runSisr = overrideVal;
             }
 
-            Log(string.Format("Bridge started: Path/AUMID={0}, ExecutableHint={1}, ExtraArgs={2}, CustomGame={3}, SISR={4}", aumid, executableHint, extraArgs, isCustomGame, runSisr));
+            Log(string.Format("Bridge started: Path/AUMID={0}, ExecutableHint={1}, ExtraArgs={2}, CustomGame={3}, EpicGame={4}, SISR={5}", aumid, executableHint, extraArgs, isCustomGame, isEpicGame, runSisr));
 
             if (runSisr)
             {
@@ -115,6 +128,31 @@ partial class Program
                 // Terminate any existing SISR and VIIPER instances to avoid conflicts and start clean
                 KillBackgroundProcesses();
 
+                // Set the forced Steam controller AppID so Steam uses the correct controller profile
+                try
+                {
+                    string bridgeExe = Process.GetCurrentProcess().MainModule.FileName;
+                    string appNameForId = aumid;
+                    if (isEpicGame)
+                    {
+                        string epicAppName = aumid.Substring(5);
+                        EpicGameInfo epicInfo = FindEpicGameInfo(epicAppName);
+                        if (epicInfo != null && !string.IsNullOrEmpty(epicInfo.Name))
+                        {
+                            appNameForId = epicInfo.Name;
+                        }
+                    }
+                    uint controllerAppId = CalculateAppId(appNameForId, bridgeExe);
+                    Log("Setting forced Steam controller AppID to: " + controllerAppId + " (name: " + appNameForId + ")");
+                    ProcessStartInfo setAppId = new ProcessStartInfo("steam://forceinputappid/" + controllerAppId);
+                    setAppId.UseShellExecute = true;
+                    Process.Start(setAppId);
+                }
+                catch (Exception ex)
+                {
+                    Log("Failed to set forced Steam controller AppID: " + ex.Message);
+                }
+
                 // Start SISR
                 Log(string.Format("Launching SISR: {0} {1}", sisrPath, sisrArguments));
                 ProcessStartInfo sisrInfo = new ProcessStartInfo(sisrPath, sisrArguments);
@@ -124,7 +162,22 @@ partial class Program
             }
 
             int gamePid = 0;
-            if (isCustomGame)
+            string epicInstallDir = "";
+            if (isEpicGame)
+            {
+                // Epic games are launched via the launcher protocol
+                string epicAppName = aumid.Substring(5); // Remove "epic:" prefix
+                gamePid = LaunchEpicGame(epicAppName, extraArgs);
+
+                // Look up the manifest to get install location for process monitoring
+                EpicGameInfo epicInfo = FindEpicGameInfo(epicAppName);
+                if (epicInfo != null)
+                {
+                    epicInstallDir = epicInfo.InstallLocation;
+                    Log("Epic game install location: " + epicInstallDir);
+                }
+            }
+            else if (isCustomGame)
             {
                 gamePid = LaunchCustomGame(aumid, extraArgs);
             }
@@ -135,7 +188,7 @@ partial class Program
             }
 
             // Wait for the game to exit
-            WaitForGameExit(gamePid, executableHint);
+            WaitForGameExit(gamePid, executableHint, epicInstallDir);
 
             if (runSisr)
             {
@@ -253,6 +306,18 @@ partial class Program
                         {
                             sgdbApiKey = val;
                         }
+                        else if (key.Equals("SelectedSteamAccounts", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var rawAccountTokens = val.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                            var trimmedAccountTokens = new List<string>();
+                            foreach (var accountToken in rawAccountTokens)
+                            {
+                                string trimmedAccountToken = accountToken.Trim();
+                                if (trimmedAccountToken.Length > 0) trimmedAccountTokens.Add(trimmedAccountToken);
+                            }
+                            selectedSteamAccountIds = new HashSet<string>(
+                                trimmedAccountTokens, StringComparer.OrdinalIgnoreCase);
+                        }
                         else if (key.StartsWith("Sisr_", StringComparison.OrdinalIgnoreCase))
                         {
                             string gameId = key.Substring(5).Trim();
@@ -295,6 +360,7 @@ partial class Program
                 sw.WriteLine("SisrArguments=" + sisrArguments);
                 sw.WriteLine("SisrEnabled=" + sisrEnabled.ToString().ToLower());
                 sw.WriteLine("SgdbApiKey=" + sgdbApiKey);
+                sw.WriteLine("SelectedSteamAccounts=" + string.Join(",", selectedSteamAccountIds));
                 sw.WriteLine("LogEnabled=" + logEnabled.ToString().ToLower());
                 sw.WriteLine();
                 sw.WriteLine("# Per-game SISR Settings");
