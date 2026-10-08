@@ -1292,7 +1292,7 @@ were not validated.
 
 ## Open validation items
 
-### First hosted CI execution (2026-10-08; follow-up verification in progress)
+### First hosted CI execution (2026-10-08; completed)
 
 - Maintainer authorized commit/push. Commit `da3d3f6` published the accumulated
   modernization on the `modernization` branch, preserving main. The Git identity
@@ -1309,20 +1309,27 @@ were not validated.
   monotonic seconds, allowing executable-image/scanner handles to be released.
   Process cleanup remains path/creation-time scoped; no session assertions are
   skipped or changed. Local focused native checks passed all three cases with a
-  warning-free build. Hosted rerun is required to complete this gate.
+  warning-free build. Commit `d8304e3` applied the correction.
+- [Hosted rerun](https://github.com/jxsparrou/controller-bridge/actions/runs/37845958021)
+  passed all stages on Windows Server 2025 with .NET SDK 10.0.401: zero build
+  warnings/errors, **333 passed/four opt-in skipped (337 total)**, development
+  publish, framework-dependent/self-contained `0.0.0-ci.2` ZIP creation, both
+  checksum/payload/runtime-layout/disabled-launch smoke checks, and package/TRX
+  artifact uploads. `docs/validation/2026-10-08-hosted-ci.md` records exact commit,
+  run and artifact links. The hosted CI gate is complete; main remains unchanged.
 
 Xbox/Win32, bounded Epic providers, and selected Steam accounts/first-file creation
 are implemented, along with artwork and opt-in managed SISR readiness/status/config.
 Bounded diagnostic logging/UI and local Windows CI/distribution automation are
 implemented. The exact development self-contained ZIP passed the clean Sandbox
-gate; hosted CI remains pending a commit/push decision.
+gate; hosted Windows CI also passed build/test/package verification.
 Do not assume these items are resolved by the audit:
 
 - Steam-generated AppID/quoting fixtures and behavior on paths with spaces.
 - Both runtime-mode packages publish and pass local startup/payload checks from
   the WSL UNC checkout. The recorded self-contained ZIP passed runtime-free
-  Sandbox verification; repeat that gate for release ZIPs. The first hosted CI
-  run still requires maintainer intervention.
+  Sandbox verification; repeat that gate for release ZIPs. Hosted CI verified the
+  modernization branch and uploaded checked development package/TRX artifacts.
 - SISR effective config precedence, inherited Steam identity/profile correctness,
   external-instance coexistence beyond startup refusal, readiness, VIIPER/device
   cleanup, crash recovery, and supported versions beyond the audited API family.

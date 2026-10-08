@@ -74,10 +74,10 @@ Appx inventory, controllers and live Steam edits are not CI gates. Default tests
 skip their explicit opt-in cases. Native controlled process/socket/registry tests
 use only owned test resources.
 
-**Maintainer intervention:** the workflow cannot run remotely until the changes
-are committed and pushed. After that, review its first Windows run and download
-the checked artifacts. Local equivalent commands and workflow linting have passed;
-the hosted runner has not yet executed this new workflow.
+The hosted Windows gate passed on 2026-10-08: **333 tests passed, four opt-in
+skipped**, both packages checked and artifacts uploaded. See the
+[recorded run and artifacts](validation/2026-10-08-hosted-ci.md). Review the CI run
+matching an intended release commit; prior green builds do not verify new source.
 
 ## Clean-machine gate — maintainer/user assisted
 

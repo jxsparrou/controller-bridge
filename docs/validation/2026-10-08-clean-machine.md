@@ -51,4 +51,4 @@ This proves the specific self-contained ZIP can start and perform the listed
 operations on a fresh Sandbox without an installed .NET 10 runtime. It does not
 establish live Steam readback, packaged COM/Epic authentication, controller input,
 SISR/VIIPER integration or every Windows version/hardware combination. Hosted CI
-still awaits a commit/push decision.
+subsequently passed; see [the hosted validation record](2026-10-08-hosted-ci.md).

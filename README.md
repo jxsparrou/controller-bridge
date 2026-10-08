@@ -331,8 +331,9 @@ desktop, installed-SISR and live Steam/controller checks remain separate gates.
 Local package startup, hashes and self-contained desktop checks have passed. The
 specific development ZIP also passed a fresh Windows Sandbox test without an
 installed .NET runtime; see [the validation record](docs/validation/2026-10-08-clean-machine.md).
-The first hosted CI run still requires a commit/push, and a new release ZIP needs
-its own clean-machine check. See the
+Hosted Windows CI also passed build/tests/both package checks; see the
+[CI validation and artifacts](docs/validation/2026-10-08-hosted-ci.md). A new release
+ZIP still needs its own clean-machine check. See the
 [release checklist](docs/RELEASE_CHECKLIST.md) for commands and user-assisted steps.
 
 ### Build and test
