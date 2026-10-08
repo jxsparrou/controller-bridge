@@ -1292,6 +1292,25 @@ were not validated.
 
 ## Open validation items
 
+### First hosted CI execution (2026-10-08; follow-up verification in progress)
+
+- Maintainer authorized commit/push. Commit `da3d3f6` published the accumulated
+  modernization on the `modernization` branch, preserving main. The Git identity
+  was supplied per commit using the maintainer-confirmed existing noreply address;
+  no Git configuration was changed. NuGet's Windows-generated dependency lock is
+  normalized in Git through a targeted `.gitattributes` rule.
+- [Initial hosted run](https://github.com/jxsparrou/controller-bridge/actions/runs/37845096934)
+  passed SDK setup, locked restore and warning-as-error build. Tests reported 331
+  passed, four opt-in skipped and two failures in native fixture teardown: staged
+  Game.exe deletion was denied immediately after forced process termination.
+  Session behavior assertions were not the reported failure. Packaging was skipped
+  because the test step failed.
+- The fixture now retries only its owned directory deletion for at most five
+  monotonic seconds, allowing executable-image/scanner handles to be released.
+  Process cleanup remains path/creation-time scoped; no session assertions are
+  skipped or changed. Local focused native checks passed all three cases with a
+  warning-free build. Hosted rerun is required to complete this gate.
+
 Xbox/Win32, bounded Epic providers, and selected Steam accounts/first-file creation
 are implemented, along with artwork and opt-in managed SISR readiness/status/config.
 Bounded diagnostic logging/UI and local Windows CI/distribution automation are

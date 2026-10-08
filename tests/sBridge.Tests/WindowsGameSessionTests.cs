@@ -121,6 +121,15 @@ public sealed class WindowsGameSessionTests : IDisposable
                 catch (InvalidOperationException) { }
             }
         }
-        Directory.Delete(directory, recursive: true);
+        // Windows can signal process exit before its executable image section
+        // (or a runner's scanner handle) is released. Retry only deletion of this
+        // fixture's owned staging directory; preserve all session assertions.
+        var cleanup = Stopwatch.StartNew();
+        while (true)
+        {
+            try { Directory.Delete(directory, recursive: true); break; }
+            catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && cleanup.Elapsed < TimeSpan.FromSeconds(5))
+            { Thread.Sleep(100); }
+        }
     }
 }
