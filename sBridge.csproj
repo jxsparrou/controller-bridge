@@ -1,0 +1,68 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>sBridge</AssemblyName>
+    <ApplicationIcon>sBridge.ico</ApplicationIcon>
+    <StartupObject>Program</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Diagnostics/BoundedLog.cs" />
+    <Compile Include="Diagnostics/ManagedSessionDiagnostics.cs" />
+    <Compile Include="Diagnostics/DiagnosticSnapshot.cs" />
+    <Compile Include="SettingsForm.cs" />
+    <Compile Include="SteamShortcuts.cs" />
+    <Compile Include="VdfParser.cs" />
+    <Compile Include="Steam/SteamShortcutIdentity.cs" />
+    <Compile Include="Steam/SteamShortcutBuilder.cs" />
+    <Compile Include="Steam/SteamShortcutRepository.cs" />
+    <Compile Include="Steam/SteamAccounts.cs" />
+    <Compile Include="Steam/SteamShortcutImporter.cs" />
+    <Compile Include="Steam/SteamArtworkIconUpdater.cs" />
+    <Compile Include="Artwork/ArtworkModels.cs" />
+    <Compile Include="Artwork/ArtworkHttpClient.cs" />
+    <Compile Include="Artwork/ArtworkService.cs" />
+    <Compile Include="Artwork/ArtworkStore.cs" />
+    <Compile Include="Artwork/WindowsArtworkImages.cs" />
+    <Compile Include="Sisr/SisrProcessManager.cs" />
+    <Compile Include="Sisr/WindowsSisrShutdown.cs" />
+    <Compile Include="Sisr/WindowsTcpListeners.cs" />
+    <Compile Include="Sisr/OwnedSisrHttp.cs" />
+    <Compile Include="Sisr/SisrReadiness.cs" />
+    <Compile Include="Sisr/WindowsSisrStatus.cs" />
+    <Compile Include="Sisr/SisrManagedStartup.cs" />
+    <Compile Include="Launching/LegacyLaunchRequest.cs" />
+    <Compile Include="Launching/WindowsCommandLine.cs" />
+    <Compile Include="Launching/LegacyLaunchOptions.cs" />
+    <Compile Include="Sessions/ProcessObservation.cs" />
+    <Compile Include="Sessions/GameLaunchEvidence.cs" />
+    <Compile Include="Sessions/ProcessMatcher.cs" />
+    <Compile Include="Sessions/GameSessionMonitor.cs" />
+    <Compile Include="Sessions/WindowsProcessObserver.cs" />
+    <Compile Include="Core/AppSettings.cs" />
+    <Compile Include="Core/Game.cs" />
+    <Compile Include="Core/EpicLaunchIdentity.cs" />
+    <Compile Include="Providers/EpicProvider.cs" />
+    <Compile Include="Providers/EpicDiscovery.cs" />
+    <Compile Include="Providers/WindowsEpicActivation.cs" />
+    <Compile Include="Launching/GameLaunchCommand.cs" />
+    <Compile Include="Providers/IGameProvider.cs" />
+    <Compile Include="Providers/GameProviders.cs" />
+    <Compile Include="Providers/WindowsGameActivation.cs" />
+    <Compile Include="Providers/DiscoveryProcessRunner.cs" />
+    <Compile Include="Providers/XboxDiscovery.cs" />
+    <Compile Include="Configuration/LegacyConfigurationCodec.cs" />
+    <Compile Include="Configuration/LegacyConfigurationStore.cs" />
+    <Compile Include="Configuration/SecretProtection.cs" />
+    <Compile Include="Configuration/JsonSettingsCodec.cs" />
+    <Compile Include="Configuration/JsonSettingsStore.cs" />
+    <Compile Include="Configuration/AppPaths.cs" />
+    <Compile Include="Configuration/ConfigurationFileOperations.cs" />
+    <None Update="sBridge.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

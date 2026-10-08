@@ -1,15 +1,17 @@
-$compiler = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-if (-not (Test-Path $compiler)) {
-    Write-Error "C# compiler csc.exe not found at $compiler"
-    exit 1
-}
+param(
+    [ValidateSet("Debug", "Release")]
+    [string]$Configuration = "Release"
+)
 
-Write-Host "Compiling all files into sBridge.exe..."
-& $compiler /target:winexe /out:sBridge.exe /win32icon:sBridge.ico /r:System.Windows.Forms.dll /r:System.dll /r:System.Drawing.dll /r:System.Core.dll Program.cs VdfParser.cs SteamShortcuts.cs SettingsForm.cs AppManager.cs
-
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "Successfully compiled sBridge.exe!" -ForegroundColor Green
-} else {
-    Write-Error "Compilation failed!"
-    exit 1
+$ErrorActionPreference = "Stop"
+Push-Location -LiteralPath $PSScriptRoot
+try {
+    # Publish the complete framework-dependent app, not just its apphost EXE.
+    & dotnet.exe publish .\sBridge.csproj -c $Configuration -r win-x64 --self-contained false -o .\artifacts\app
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+    Write-Host "Built sBridge in artifacts\app. Keep all files in that folder together." -ForegroundColor Green
+} finally {
+    Pop-Location
 }

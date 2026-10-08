@@ -3,9 +3,15 @@ sBridge.exe
 
 # Configuration and logs
 sBridge.cfg
+sBridge.cfg.bak
+sBridge.cfg.*.tmp
 sBridge.log
 
 # IDE files
 .vs/
 bin/
 obj/
+
+# SDK publish and test output
+artifacts/
+TestResults/

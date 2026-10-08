@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="sBridge.csproj" />
+  <Folder Name="/tests/">
+    <Project Path="tests/sBridge.Tests/sBridge.Tests.csproj" />
+  </Folder>
+</Solution>
