@@ -1378,6 +1378,13 @@ were not validated.
   Steam profile-context gates. Automated matching configuration is not controller
   input proof. Artwork match selection/repair/WebP remain optional enhancements;
   exact new release ZIPs still need their own clean-machine check.
+- Committed/pushed library and controller-profile work as `c6d564b` on
+  modernization. [Hosted run 37872788183](https://github.com/jxsparrou/controller-bridge/actions/runs/37872788183)
+  passed build/tests/publish/both package checks and uploads. Downloaded TRX
+  confirms 358 passed/zero failed/363 total, with five explicit opt-in skips.
+  Evidence and updated artifact links are recorded in the hosted CI validation
+  document. Worktree was clean after the feature push; the earlier exact-ZIP
+  Sandbox result remains distinct from newly built CI artifacts.
 
 ## Open validation items
 
