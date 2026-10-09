@@ -51,6 +51,8 @@
     <Compile Include="../../Sessions/WindowsProcessObserver.cs" Link="Sessions/WindowsProcessObserver.cs" />
     <Compile Include="../../Core/AppSettings.cs" Link="Core/AppSettings.cs" />
     <Compile Include="../../Core/Game.cs" Link="Core/Game.cs" />
+    <Compile Include="../../Core/GameLibraryEditor.cs" Link="Core/GameLibraryEditor.cs" />
+    <Compile Include="../../Core/SisrControllerProfile.cs" Link="Core/SisrControllerProfile.cs" />
     <Compile Include="../../Core/EpicLaunchIdentity.cs" Link="Core/EpicLaunchIdentity.cs" />
     <Compile Include="../../Providers/EpicProvider.cs" Link="Providers/EpicProvider.cs" />
     <Compile Include="../../Providers/EpicDiscovery.cs" Link="Providers/EpicDiscovery.cs" />

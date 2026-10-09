@@ -51,6 +51,11 @@ internal static class ArgumentProbe
         listener.Start();
         File.WriteAllText(capture, JsonSerializer.Serialize(new { pid = Environment.ProcessId, cwd = Environment.CurrentDirectory, arguments }));
         bool unsupported = arguments.Contains("--unsupported-api");
+        string? configPath = arguments.FirstOrDefault(argument => argument.StartsWith("--config=", StringComparison.Ordinal))?[9..];
+        using var config = configPath == null ? null : JsonDocument.Parse(File.ReadAllBytes(configPath));
+        string type = config?.RootElement.TryGetProperty("default_controller_type", out var controllerType) == true ? controllerType.GetString()! : "xbox360";
+        if (arguments.Contains("--ignore-controller-profile")) type = "xbox360";
+        bool Flag(string name, bool fallback) => config?.RootElement.TryGetProperty(name, out var value) == true ? value.GetBoolean() : fallback;
         while (true)
         {
             using var client = listener.AcceptTcpClient(); using var stream = client.GetStream();
@@ -63,7 +68,9 @@ internal static class ArgumentProbe
                 "/api/v1/version/info" => "{\"version\":\"" + (unsupported ? "v0.7.0" : "v0.6.1") + "\"}",
                 "/api/v1/steam/status" => "{\"steam_running\":false,\"no_steam_mode\":true,\"launched_via_steam\":false,\"cef_debug_reachable\":false,\"marker_shortcut_present\":false}",
                 "/api/v1/viiper/status" => "{\"status\":null}", "/api/v1/devices" => "null",
-                _ => "{\"controllerEmulation\":{\"DefaultControllerType\":\"xbox360\"},\"runMisc\":{\"InitialLaunch\":false},\"window\":{\"Fullscreen\":false,\"Show\":false}}"
+                _ => JsonSerializer.Serialize(new { controllerEmulation = new { DefaultControllerType = type, GyroPassthrough = Flag("gyro_passthrough", true),
+                    TouchpadPassthrough = Flag("touchpad_passthrough", true), BackButtonPassthrough = Flag("back_button_passthrough", false) },
+                    runMisc = new { InitialLaunch = false }, window = new { Fullscreen = false, Show = false } })
             };
             byte[] bytes = System.Text.Encoding.UTF8.GetBytes(body);
             stream.Write(System.Text.Encoding.ASCII.GetBytes("HTTP/1.1 " + (quit ? "204 No Content" : "200 OK") + "\r\nContent-Type: application/json\r\nContent-Length: " + bytes.Length + "\r\nConnection: close\r\n\r\n"));

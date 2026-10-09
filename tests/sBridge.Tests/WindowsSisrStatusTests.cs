@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Runtime.Versioning;
 using System.Text;
 using SBridge.Sisr;
+using SBridge.Core;
 using Xunit;
 
 namespace SBridge.Tests;
@@ -68,6 +69,25 @@ public class WindowsSisrStatusTests
             string config = Assert.Single(Directory.GetFiles(directory, "startup.json", SearchOption.AllDirectories));
             string log = Path.Combine(Path.GetDirectoryName(config)!, "SISR.log");
             Assert.Contains("Shutting down", File.ReadAllText(log));
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [InstalledSisrFact]
+    public async Task InstalledSISRManagedControllerProfileMatchesEffectiveApiConfiguration()
+    {
+        string executable = Environment.GetEnvironmentVariable("SBRIDGE_TEST_SISR_PATH")!;
+        string directory = Path.Combine(Path.GetTempPath(), "sBridge-SISR-profile-" + Guid.NewGuid().ToString("N"));
+        var options = new SisrControllerProfile(SisrControllerType.DualSenseEdge, false, false, true);
+        var lines = new List<string>();
+        try
+        {
+            using var manager = SisrProcessManager.StartWindowsManaged(executable,
+                "--no-steam --viiper.address=sbridge-smoke.invalid:3242 --update-notify=none", directory, lines.Add, options);
+            var status = await manager.WaitForReadyAsync(new WindowsSisrStatus(), CancellationToken.None, TimeSpan.FromSeconds(20));
+            SisrManagedStartup.VerifyEffectiveProfile(options, status);
+            Assert.True(status.NoSteamMode); Assert.False(status.ViiperConnected);
+            await manager.StopAsync(); Assert.DoesNotContain(lines, line => line.Contains("Force-stopping"));
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }

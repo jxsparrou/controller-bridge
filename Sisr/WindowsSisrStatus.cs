@@ -35,6 +35,7 @@ internal sealed class WindowsSisrStatus : ISisrStatusSource
                 viaSteam = RequiredBool(state, "launched_via_steam"), cef = RequiredBool(state, "cef_debug_reachable"), marker = RequiredBool(state, "marker_shortcut_present");
             bool viiperConnected = false; int? devices = null; string? controller = null; bool? initial = null;
             bool? fullscreen = null, shown = null;
+            bool? gyro = null, touchpad = null, backButtons = null;
             using var viiper = await GetAsync(client, "viiper/status", token).ConfigureAwait(false);
             if (viiper != null && viiper.RootElement.TryGetProperty("status", out var ping) && ping.ValueKind == JsonValueKind.Object)
                 viiperConnected = !string.IsNullOrWhiteSpace(RequiredString(ping, "server")) && !string.IsNullOrWhiteSpace(RequiredString(ping, "version"));
@@ -52,13 +53,16 @@ internal sealed class WindowsSisrStatus : ISisrStatusSource
                 {
                     string type = RequiredString(emulation, "DefaultControllerType");
                     if (type is "xbox360" or "dualshock4" or "dualsense" or "dualsenseedge" or "ns2pro") controller = type;
+                    if (emulation.TryGetProperty("GyroPassthrough", out _)) gyro = RequiredBool(emulation, "GyroPassthrough");
+                    if (emulation.TryGetProperty("TouchpadPassthrough", out _)) touchpad = RequiredBool(emulation, "TouchpadPassthrough");
+                    if (emulation.TryGetProperty("BackButtonPassthrough", out _)) backButtons = RequiredBool(emulation, "BackButtonPassthrough");
                 }
                 if (config.RootElement.TryGetProperty("runMisc", out var misc)) initial = RequiredBool(misc, "InitialLaunch");
                 if (config.RootElement.TryGetProperty("window", out var window))
                 { fullscreen = RequiredBool(window, "Fullscreen"); shown = RequiredBool(window, "Show"); }
                 // Never retain/log the config's VIIPER password or other arbitrary fields.
             }
-            return new SisrStatusSnapshot(release, true, running, noSteam, viaSteam, cef, marker, viiperConnected, devices, controller, initial, fullscreen, shown);
+            return new SisrStatusSnapshot(release, true, running, noSteam, viaSteam, cef, marker, viiperConnected, devices, controller, initial, fullscreen, shown, gyro, touchpad, backButtons);
         }
         return null;
     }

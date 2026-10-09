@@ -14,7 +14,22 @@ internal sealed class JsonGameProfile
 {
     public required SteamInputMode SteamInput { get; set; }
     public required string WatchProcess { get; set; }
+    public JsonControllerProfile? Controller { get; set; }
     [JsonExtensionData] public Dictionary<string, JsonElement>? Extra { get; set; }
+}
+
+internal sealed class JsonControllerProfile
+{
+    public required SisrControllerType ControllerType { get; set; }
+    public required bool GyroPassthrough { get; set; }
+    public required bool TouchpadPassthrough { get; set; }
+    public required bool BackButtonPassthrough { get; set; }
+    [JsonExtensionData] public Dictionary<string, JsonElement>? Extra { get; set; }
+    public SisrControllerProfile ToProfile()
+    {
+        var profile = new SisrControllerProfile(ControllerType, GyroPassthrough, TouchpadPassthrough, BackButtonPassthrough);
+        profile.Validate(); return profile;
+    }
 }
 
 internal sealed class JsonGameData
@@ -63,7 +78,8 @@ internal static class JsonSettingsCodec
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true,
         Converters = { new JsonStringEnumConverter<SteamInputMode>(JsonNamingPolicy.CamelCase, allowIntegerValues: false),
-            new JsonStringEnumConverter<GameLaunchKind>(JsonNamingPolicy.CamelCase, allowIntegerValues: false) }
+            new JsonStringEnumConverter<GameLaunchKind>(JsonNamingPolicy.CamelCase, allowIntegerValues: false),
+            new JsonStringEnumConverter<SisrControllerType>(JsonNamingPolicy.CamelCase, allowIntegerValues: false) }
     };
 
     public static DecodedSettings Decode(byte[] bytes, ISecretProtector protector)
@@ -102,7 +118,7 @@ internal static class JsonSettingsCodec
                 settings.SetWatchProcess(pair.Key, pair.Value.WatchProcess);
                 // Keep automatic/empty entries represented so casing duplicates
                 // cannot evade validation merely because the domain prunes defaults.
-                settings.GameProfiles[pair.Key] = new GameProfile(pair.Value.SteamInput, pair.Value.WatchProcess);
+                settings.GameProfiles[pair.Key] = new GameProfile(pair.Value.SteamInput, pair.Value.WatchProcess, pair.Value.Controller?.ToProfile());
             }
             ValidateText(settings.SteamGridDbApiKey);
             if (data.Games != null)
@@ -138,9 +154,13 @@ internal static class JsonSettingsCodec
             ValidateText(pair.Key);
             var validation = new AppSettings();
             validation.SetSteamInputMode(pair.Key, pair.Value.SteamInput); validation.SetWatchProcess(pair.Key, pair.Value.WatchProcess);
+            validation.SetControllerProfile(pair.Key, pair.Value.Controller);
             ValidateText(pair.Value.WatchProcess);
             var old = previous?.GameProfiles.FirstOrDefault(entry => string.Equals(entry.Key, pair.Key, StringComparison.OrdinalIgnoreCase)).Value;
             profiles.Add(pair.Key, new JsonGameProfile { SteamInput = pair.Value.SteamInput, WatchProcess = pair.Value.WatchProcess,
+                Controller = pair.Value.Controller is { } controller ? new JsonControllerProfile { ControllerType = controller.ControllerType,
+                    GyroPassthrough = controller.GyroPassthrough, TouchpadPassthrough = controller.TouchpadPassthrough,
+                    BackButtonPassthrough = controller.BackButtonPassthrough, Extra = old?.Controller?.Extra } : null,
                 Extra = old?.Extra });
         }
         string? protectedKey = null;

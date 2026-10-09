@@ -10,7 +10,8 @@ namespace SBridge.Sisr;
 
 internal sealed record SisrStatusSnapshot(string Version, bool ApiSupported, bool SteamRunning, bool NoSteamMode,
     bool LaunchedViaSteam, bool CefReachable, bool MarkerPresent, bool ViiperConnected, int? DeviceCount,
-    string? ControllerType, bool? InitialLaunch, bool? WindowFullscreen = null, bool? WindowShown = null);
+    string? ControllerType, bool? InitialLaunch, bool? WindowFullscreen = null, bool? WindowShown = null,
+    bool? GyroPassthrough = null, bool? TouchpadPassthrough = null, bool? BackButtonPassthrough = null);
 
 internal interface ISisrStatusSource
 {

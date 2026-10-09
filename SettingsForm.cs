@@ -82,6 +82,21 @@ partial class Program
         private Button btnCopyDiagnostics;
         private string diagnosticReport;
         private CheckedListBox lstSteamAccounts;
+        private ListBox lstLibrary;
+        private TextBox txtLibraryName, txtLibraryTarget, txtLibraryArguments, txtLibraryHint, txtLibraryInstall, txtLibraryWatch;
+        private ComboBox cmbLibrarySisr;
+        private Button btnLibrarySave;
+        private Label lblLibraryIdentity, lblLibraryStatus;
+        private Game libraryOriginal;
+        private GameProfile libraryOriginalProfile;
+        private ListBox lstControllerGames;
+        private CheckBox chkControllerOverride, chkControllerGyro, chkControllerTouch, chkControllerBack;
+        private ComboBox cmbControllerType;
+        private Button btnControllerSave;
+        private Label lblControllerStatus;
+        private Game controllerOriginal;
+        private GameProfile controllerOriginalProfile;
+        private sealed record LibraryRow(Guid Id, string Label) { public override string ToString() => Label; }
         private sealed record AccountChoice(string Id, string Label)
         {
             public override string ToString() => Label;
@@ -124,6 +139,8 @@ partial class Program
             InitializeComponents();
             LoadPaths();
             RefreshShortcutsList();
+            ReloadLibrary();
+            ReloadControllerGames();
         }
 
         private void InitializeComponents()
@@ -599,6 +616,8 @@ partial class Program
             pageSettings.Controls.Add(btnMigrate);
             CreateSteamAccountsPage();
             CreateDiagnosticsPage();
+            CreateLibraryPage();
+            CreateControllerPage();
 
             // Bottom Close Button
             Button btnClose = new Button();
@@ -1117,6 +1136,185 @@ partial class Program
             }
 
             RefreshShortcutsList();
+        }
+
+        private void CreateLibraryPage()
+        {
+            var page = new TabPage("Registered Games") { BackColor = bgPanel };
+            tabControl.TabPages.Add(page);
+            page.Controls.Add(new Label { Text = "Local launch registry. Edits apply after Save; existing Steam names/AppIDs/artwork are retained.",
+                ForeColor = textLight, Font = new Font("Segoe UI", 9), Location = new Point(15, 8), Size = new Size(595, 30) });
+            lstLibrary = new ListBox { Name = "RegisteredGames", Font = new Font("Segoe UI", 9), BackColor = bgInput, ForeColor = Color.White,
+                Location = new Point(15, 40), Size = new Size(195, 240), HorizontalScrollbar = true };
+            lstLibrary.SelectedIndexChanged += (s, e) => LoadLibrarySelection(); page.Controls.Add(lstLibrary);
+            TextBox Field(string name, string label, int y, bool multiline = false)
+            {
+                page.Controls.Add(new Label { Text = label, ForeColor = textLight, Font = new Font("Segoe UI", 9), Location = new Point(220, y + 3), Size = new Size(90, 20) });
+                var field = new TextBox { Name = name, Font = new Font("Segoe UI", 9), BackColor = bgInput, ForeColor = Color.White,
+                    Location = new Point(310, y), Size = new Size(300, multiline ? 36 : 23), Multiline = multiline };
+                page.Controls.Add(field); return field;
+            }
+            txtLibraryName = Field("LibraryName", "Name", 40);
+            txtLibraryTarget = Field("LibraryTarget", "Target", 68);
+            txtLibraryArguments = Field("LibraryArguments", "Arguments", 96, true);
+            txtLibraryHint = Field("LibraryHint", "Process hint", 137);
+            txtLibraryInstall = Field("LibraryInstall", "Install folder", 165);
+            txtLibraryWatch = Field("LibraryWatch", "Watch override", 193);
+            page.Controls.Add(new Label { Text = "SISR", ForeColor = textLight, Font = new Font("Segoe UI", 9), Location = new Point(220, 225), Size = new Size(90, 20) });
+            cmbLibrarySisr = new ComboBox { Name = "LibrarySisr", DropDownStyle = ComboBoxStyle.DropDownList, BackColor = bgInput, ForeColor = Color.White,
+                Location = new Point(310, 221), Size = new Size(300, 23) };
+            cmbLibrarySisr.Items.AddRange(new object[] { "Automatic (global)", "Enabled", "Disabled" }); page.Controls.Add(cmbLibrarySisr);
+            lblLibraryIdentity = new Label { Name = "LibraryIdentity", ForeColor = textMuted, Font = new Font("Segoe UI", 8), Location = new Point(220, 249), Size = new Size(390, 30) };
+            page.Controls.Add(lblLibraryIdentity);
+            btnLibrarySave = new Button { Text = "Save Game", Name = "SaveLibraryGame", FlatStyle = FlatStyle.Flat, BackColor = accentGreen, ForeColor = Color.White,
+                Location = new Point(310, 281), Size = new Size(145, 28), Enabled = false };
+            btnLibrarySave.Click += (s, e) => SaveLibraryGame(); page.Controls.Add(btnLibrarySave);
+            var reload = new Button { Text = "Reload Games", FlatStyle = FlatStyle.Flat, BackColor = accentBlue, ForeColor = Color.White,
+                Location = new Point(15, 281), Size = new Size(195, 28) };
+            reload.Click += (s, e) => ReloadLibrary(); page.Controls.Add(reload);
+            lblLibraryStatus = new Label { Name = "LibraryStatus", ForeColor = textMuted, Font = new Font("Segoe UI", 8), Location = new Point(465, 280), Size = new Size(145, 34) };
+            page.Controls.Add(lblLibraryStatus);
+        }
+
+        private void ReloadLibrary(Guid? selected = null)
+        {
+            lstLibrary.Items.Clear();
+            var games = new List<Game>(Program.Settings.Games.Values);
+            games.Sort((left, right) => { int name = StringComparer.OrdinalIgnoreCase.Compare(left.Name, right.Name); return name != 0 ? name : left.Id.CompareTo(right.Id); });
+            foreach (var game in games)
+            {
+                int index = lstLibrary.Items.Add(new LibraryRow(game.Id, game.Name + " [" + game.Provider + "; " + game.Id.ToString("N").Substring(0, 8) + "]"));
+                if (selected == game.Id) lstLibrary.SelectedIndex = index;
+            }
+            if (lstLibrary.SelectedIndex < 0) LoadLibrarySelection();
+        }
+
+        private void LoadLibrarySelection()
+        {
+            libraryOriginal = null; libraryOriginalProfile = null;
+            if (lstLibrary.SelectedItem is LibraryRow row) Program.Settings.Games.TryGetValue(row.Id, out libraryOriginal);
+            bool available = libraryOriginal != null;
+            foreach (var control in new Control[] { txtLibraryName, txtLibraryTarget, txtLibraryArguments, txtLibraryHint, txtLibraryInstall, txtLibraryWatch, cmbLibrarySisr, btnLibrarySave }) control.Enabled = available;
+            if (!available)
+            {
+                foreach (var field in new[] { txtLibraryName, txtLibraryTarget, txtLibraryArguments, txtLibraryHint, txtLibraryInstall, txtLibraryWatch }) field.Text = "";
+                cmbLibrarySisr.SelectedIndex = -1; lblLibraryIdentity.Text = "Select a registered game, or import one first."; lblLibraryStatus.Text = ""; return;
+            }
+            var game = libraryOriginal; libraryOriginalProfile = Program.Settings.GetProfile(game.ProfileKey);
+            txtLibraryName.Text = game.Name; txtLibraryTarget.Text = game.Target; txtLibraryArguments.Text = WindowsCommandLine.Join(game.Arguments);
+            txtLibraryHint.Text = game.ProcessHint; txtLibraryInstall.Text = game.InstallDirectory ?? ""; txtLibraryWatch.Text = libraryOriginalProfile.WatchProcess;
+            cmbLibrarySisr.SelectedIndex = (int)libraryOriginalProfile.SteamInput;
+            txtLibraryTarget.ReadOnly = game.LaunchKind == GameLaunchKind.EpicLauncher;
+            txtLibraryArguments.ReadOnly = game.LaunchKind == GameLaunchKind.EpicLauncher;
+            lblLibraryIdentity.Text = game.LaunchKind + " | " + game.Id.ToString("D");
+            lblLibraryStatus.Text = game.LaunchKind == GameLaunchKind.EpicLauncher ? "Epic args are configured in its launcher." : "Draft: click Save to apply.";
+        }
+
+        private void SaveLibraryGame()
+        {
+            if (libraryOriginal == null) return;
+            try
+            {
+                string target = txtLibraryTarget.Text.Trim(), install = txtLibraryInstall.Text.Trim();
+                if (libraryOriginal.LaunchKind == GameLaunchKind.Executable)
+                {
+                    if (!Path.IsPathFullyQualified(target)) throw new ArgumentException("Executable targets must be absolute Windows paths.");
+                    target = Path.GetFullPath(target);
+                }
+                else if (libraryOriginal.LaunchKind == GameLaunchKind.PackagedApplication)
+                {
+                    int separator = target.IndexOf('!');
+                    if (separator <= 0 || separator != target.LastIndexOf('!') || separator == target.Length - 1 || target.IndexOfAny(new[] { ' ', '\t', '\r', '\n', '\\', '/' }) >= 0)
+                        throw new ArgumentException("Packaged targets require a package-family!application identity.");
+                }
+                if (install.Length != 0)
+                {
+                    if (!Path.IsPathFullyQualified(install)) throw new ArgumentException("Install folders must be absolute Windows paths or empty.");
+                    install = Path.GetFullPath(install);
+                }
+                var definition = GameLibraryEditor.Definition(libraryOriginal, txtLibraryName.Text.Trim(), target,
+                    new List<string>(WindowsCommandLine.Split(txtLibraryArguments.Text)).ToArray(), txtLibraryHint.Text.Trim(), install.Length == 0 ? null : install);
+                var profile = libraryOriginalProfile with { SteamInput = (SteamInputMode)cmbLibrarySisr.SelectedIndex, WatchProcess = txtLibraryWatch.Text.Trim() };
+                if (!Program.TryEditGame(libraryOriginal, libraryOriginalProfile, definition, profile)) return;
+                ReloadLibrary(definition.Id); RefreshShortcutsList();
+                lblLibraryStatus.Text = "Saved. UUID retained.";
+            }
+            catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException or System.Security.SecurityException)
+            { MessageBox.Show(ex.Message, "Registered Game Edit", MessageBoxButtons.OK, MessageBoxIcon.Information); }
+        }
+
+        private void CreateControllerPage()
+        {
+            var page = new TabPage("Controller Profiles") { BackColor = bgPanel }; tabControl.TabPages.Add(page);
+            page.Controls.Add(new Label { Text = "Per-game SISR emulation options. Requires managed startup; Steam bindings stay configured in Steam.",
+                ForeColor = textLight, Font = new Font("Segoe UI", 9), Location = new Point(15, 8), Size = new Size(595, 35) });
+            lstControllerGames = new ListBox { Name = "ControllerGames", Font = new Font("Segoe UI", 9), BackColor = bgInput, ForeColor = Color.White,
+                Location = new Point(15, 45), Size = new Size(195, 230), HorizontalScrollbar = true };
+            lstControllerGames.SelectedIndexChanged += (s, e) => LoadControllerSelection(); page.Controls.Add(lstControllerGames);
+            CheckBox Option(string name, string text, int y)
+            {
+                var control = new CheckBox { Name = name, Text = text, ForeColor = textLight, Font = new Font("Segoe UI", 9),
+                    Location = new Point(230, y), Size = new Size(380, 25) }; page.Controls.Add(control); return control;
+            }
+            chkControllerOverride = Option("ControllerOverride", "Override controller options for this game", 45);
+            cmbControllerType = new ComboBox { Name = "ControllerType", DropDownStyle = ComboBoxStyle.DropDownList, BackColor = bgInput, ForeColor = Color.White,
+                Location = new Point(230, 82), Size = new Size(370, 25) };
+            cmbControllerType.Items.AddRange(new object[] { "Xbox 360", "DualShock 4", "DualSense", "DualSense Edge", "Switch 2 Pro" }); page.Controls.Add(cmbControllerType);
+            chkControllerGyro = Option("ControllerGyro", "Gyro passthrough", 122);
+            chkControllerTouch = Option("ControllerTouch", "Touchpad passthrough", 157);
+            chkControllerBack = Option("ControllerBack", "Back-button passthrough (supported controllers)", 192);
+            chkControllerOverride.CheckedChanged += (s, e) => UpdateControllerInputs();
+            lblControllerStatus = new Label { Name = "ControllerProfileStatus", ForeColor = textMuted, Font = new Font("Segoe UI", 9),
+                Location = new Point(230, 227), Size = new Size(370, 45) }; page.Controls.Add(lblControllerStatus);
+            var reload = new Button { Text = "Reload Profiles", FlatStyle = FlatStyle.Flat, BackColor = accentBlue, ForeColor = Color.White,
+                Location = new Point(15, 281), Size = new Size(195, 28) };
+            reload.Click += (s, e) => ReloadControllerGames(); page.Controls.Add(reload);
+            btnControllerSave = new Button { Name = "SaveControllerProfile", Text = "Save Profile", FlatStyle = FlatStyle.Flat, BackColor = accentGreen, ForeColor = Color.White,
+                Location = new Point(230, 281), Size = new Size(200, 28), Enabled = false };
+            btnControllerSave.Click += (s, e) => SaveControllerProfile(); page.Controls.Add(btnControllerSave);
+        }
+
+        private void ReloadControllerGames(Guid? selected = null)
+        {
+            lstControllerGames.Items.Clear(); var games = new List<Game>(Program.Settings.Games.Values);
+            games.Sort((left, right) => { int name = StringComparer.OrdinalIgnoreCase.Compare(left.Name, right.Name); return name != 0 ? name : left.Id.CompareTo(right.Id); });
+            foreach (var game in games)
+            {
+                int index = lstControllerGames.Items.Add(new LibraryRow(game.Id, game.Name + " [" + game.Provider + "; " + game.Id.ToString("N").Substring(0, 8) + "]"));
+                if (selected == game.Id) lstControllerGames.SelectedIndex = index;
+            }
+            if (lstControllerGames.SelectedIndex < 0) LoadControllerSelection();
+        }
+
+        private void LoadControllerSelection()
+        {
+            controllerOriginal = null; controllerOriginalProfile = null;
+            if (lstControllerGames.SelectedItem is LibraryRow row) Program.Settings.Games.TryGetValue(row.Id, out controllerOriginal);
+            var profile = controllerOriginal == null ? new GameProfile() : Program.Settings.GetProfile(controllerOriginal.ProfileKey);
+            controllerOriginalProfile = profile;
+            var options = profile.Controller ?? new SisrControllerProfile();
+            chkControllerOverride.Checked = profile.Controller != null; cmbControllerType.SelectedIndex = (int)options.ControllerType;
+            chkControllerGyro.Checked = options.GyroPassthrough; chkControllerTouch.Checked = options.TouchpadPassthrough; chkControllerBack.Checked = options.BackButtonPassthrough;
+            UpdateControllerInputs();
+            lblControllerStatus.Text = controllerOriginal == null ? "Select a registered game." :
+                "Draft: Save Profile to apply. Inherit leaves SISR's defaults/advanced controller options unchanged.";
+        }
+
+        private void UpdateControllerInputs()
+        {
+            bool selected = controllerOriginal != null; chkControllerOverride.Enabled = selected;
+            foreach (var control in new Control[] { cmbControllerType, chkControllerGyro, chkControllerTouch, chkControllerBack }) control.Enabled = selected && chkControllerOverride.Checked;
+            btnControllerSave.Enabled = selected;
+        }
+
+        private void SaveControllerProfile()
+        {
+            if (controllerOriginal == null) return;
+            var options = chkControllerOverride.Checked ? new SisrControllerProfile((SisrControllerType)cmbControllerType.SelectedIndex,
+                chkControllerGyro.Checked, chkControllerTouch.Checked, chkControllerBack.Checked) : null;
+            var profile = controllerOriginalProfile with { Controller = options };
+            if (!Program.TryEditGame(controllerOriginal, controllerOriginalProfile, controllerOriginal, profile)) return;
+            ReloadControllerGames(controllerOriginal.Id); lblControllerStatus.Text = options == null ? "Saved: inheriting controller options." : "Saved. Managed SISR startup is required when integration is enabled.";
         }
 
         private void CreateDiagnosticsPage()

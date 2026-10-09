@@ -46,6 +46,8 @@ try {
     $configPath = Join-Path $env:SBRIDGE_TEST_DATA_DIRECTORY "config.json"
     $settings = @{ schemaVersion=1; sisrPath=$sisr; sisrArguments=('--sisr-api-probe "' + $capture + '"'); sisrEnabled=$true; managedSisrStartup=$true;
         logEnabled=$true; protectedSteamGridDbApiKey=$null; gameProfiles=@{}; games=@{}; selectedSteamAccountIds=@() }
+    $settings.gameProfiles[$game] = @{ steamInput="enabled"; watchProcess=""; controller=@{ controllerType="dualSenseEdge";
+        gyroPassthrough=$false; touchpadPassthrough=$false; backButtonPassthrough=$true } }
     [IO.File]::WriteAllText($configPath, ($settings | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
     $options = '"' + $game + '" --write-arguments "' + $argv + '" "Player One"'
     $launch = Start-Process -FilePath (Join-Path $staging "sBridge.exe") -ArgumentList $options -WorkingDirectory $staging -PassThru
@@ -56,6 +58,8 @@ try {
     $started = [IO.File]::ReadAllText($capture) | ConvertFrom-Json
     if (-not $started.cwd.StartsWith((Join-Path $env:SBRIDGE_TEST_DATA_DIRECTORY "sisr\sessions"), [StringComparison]::OrdinalIgnoreCase)) { throw "Managed SISR did not use its isolated session cwd." }
     if (-not (Test-Path -LiteralPath (Join-Path $started.cwd "startup.json"))) { throw "Owned startup configuration was missing." }
+    $startup = [IO.File]::ReadAllText((Join-Path $started.cwd "startup.json")) | ConvertFrom-Json
+    if ($startup.default_controller_type -ne "dualsenseedge" -or $startup.gyro_passthrough -ne $false -or $startup.touchpad_passthrough -ne $false -or $startup.back_button_passthrough -ne $true) { throw "Per-game profile was not applied to owned startup config." }
     $logPath = Join-Path $env:SBRIDGE_TEST_DATA_DIRECTORY "logs\sBridge.log"
     $log = [IO.File]::ReadAllText($logPath)
     if ($log.IndexOf("Owned SISR API ready:") -lt 0 -or $log.IndexOf("Owned SISR API ready:") -gt $log.IndexOf("Launching custom game:")) { throw "Readiness did not precede activation." }
@@ -63,18 +67,27 @@ try {
     Write-Host "PASS: managed config/cwd and API readiness precede game activation; argument forwarding and graceful owned cleanup work."
     $launch.Dispose(); $launch = $null
     Remove-Item -LiteralPath $argv, $capture
-    $settings.sisrArguments += " --unsupported-api"
-    [IO.File]::WriteAllText($configPath, ($settings | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
-    $launch = Start-Process -FilePath (Join-Path $staging "sBridge.exe") -ArgumentList $options -WorkingDirectory $staging -PassThru
-    $deadline = [DateTime]::UtcNow.AddSeconds(20)
-    do { Start-Sleep -Milliseconds 100; $dialog = [SBridgeManagedSmokeWindow]::Find($launch.Id, "sBridge Exception") } while ($dialog -eq [IntPtr]::Zero -and [DateTime]::UtcNow -lt $deadline)
-    if ($dialog -eq [IntPtr]::Zero) { throw "Unsupported owned API did not report a launch error." }
-    if (Test-Path -LiteralPath $argv) { throw "Unsupported SISR activated a game before failing." }
-    $failed = [IO.File]::ReadAllText($capture) | ConvertFrom-Json
-    $remaining = Get-Process -Id $failed.pid -ErrorAction SilentlyContinue
-    if ($null -ne $remaining) { $remaining.Dispose(); throw "Owned SISR remained alive before the error dialog." }
-    if (-not [SBridgeManagedSmokeWindow]::Close($dialog) -or -not $launch.WaitForExit(10000)) { throw "Managed launch error did not close." }
-    Write-Host "PASS: unsupported SISR API blocks activation and cleans the owned root before the error dialog."
+    foreach ($failure in @("--unsupported-api", "--ignore-controller-profile", "legacy")) {
+        $settings.managedSisrStartup = ($failure -ne "legacy")
+        $settings.sisrArguments = '--sisr-api-probe "' + $capture + '"' + $(if ($failure -eq "legacy") { "" } else { " " + $failure })
+        [IO.File]::WriteAllText($configPath, ($settings | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
+        $launch = Start-Process -FilePath (Join-Path $staging "sBridge.exe") -ArgumentList $options -WorkingDirectory $staging -PassThru
+        $deadline = [DateTime]::UtcNow.AddSeconds(20)
+        do { Start-Sleep -Milliseconds 100; $dialog = [SBridgeManagedSmokeWindow]::Find($launch.Id, "sBridge Exception") } while ($dialog -eq [IntPtr]::Zero -and [DateTime]::UtcNow -lt $deadline)
+        if ($dialog -eq [IntPtr]::Zero) { throw "SISR policy failure ($failure) did not report a launch error." }
+        if (Test-Path -LiteralPath $argv) { throw "SISR policy failure ($failure) activated a game." }
+        if ($failure -eq "legacy") {
+            if (Test-Path -LiteralPath $capture) { throw "Structured legacy profile started SISR before rejection." }
+        } else {
+            $failed = [IO.File]::ReadAllText($capture) | ConvertFrom-Json
+            $remaining = Get-Process -Id $failed.pid -ErrorAction SilentlyContinue
+            if ($null -ne $remaining) { $remaining.Dispose(); throw "Owned SISR remained alive before the error dialog." }
+            Remove-Item -LiteralPath $capture
+        }
+        if (-not [SBridgeManagedSmokeWindow]::Close($dialog) -or -not $launch.WaitForExit(10000)) { throw "Managed launch error did not close." }
+        $launch.Dispose(); $launch=$null
+        Write-Host "PASS: $failure blocks activation and leaves no owned SISR before the error dialog."
+    }
 } finally {
     if ($null -ne $launch) { if (-not $launch.HasExited) { $launch.Kill(); $launch.WaitForExit() }; $launch.Dispose() }
     # A failed harness may leave a recorded stand-in; verify its unique image path

@@ -135,4 +135,6 @@ Steam-created AppID/quoting fixtures; close Steam before writes. Validate packag
 COM and Epic authentication/EAC handoffs using games you own. Physical controller
 input, VIIPER/device cleanup, Steam profiles/first-run setup and managed SISR context
 need real gameplay observation. Controlled probes and CI package checks do not
-establish those outcomes. Registered-library editing remains planned.
+establish those outcomes. The registered-library editor has isolated transaction,
+rollback and ID-launch coverage; real Steam readback/controller validation remains
+separate.

@@ -125,8 +125,10 @@ public class WindowsSisrTests
                 "--no-steam --api.listen-address=127.0.0.1:0 --viiper.address=sbridge-smoke.invalid:3242 " +
                 "--window.fullscreen=false --window.show=false --update-notify=none --log.file=\"" + logPath + "\"", logs.Add);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-            while (WindowsTcpListeners.ForProcess(manager.ProcessId).Count == 0)
-                await Task.Delay(100, timeout.Token);
+            // Listener creation precedes serving/status initialization. Wait for
+            // the owned API contract rather than racing quit against that window.
+            var status = await manager.WaitForReadyAsync(new WindowsSisrStatus(), timeout.Token, TimeSpan.FromSeconds(20));
+            Assert.True(status.NoSteamMode);
             await manager.StopAsync();
             Assert.DoesNotContain(logs, line => line.Contains("Force-stopping") || line.Contains("cleanup failed"));
             Assert.Contains(logs, line => line.Contains("Requested graceful quit"));

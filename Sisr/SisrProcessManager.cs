@@ -7,6 +7,7 @@ using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 using SBridge.Diagnostics;
+using SBridge.Core;
 
 namespace SBridge.Sisr;
 
@@ -94,16 +95,16 @@ internal sealed class SisrProcessManager : IDisposable
     }
 
     [SupportedOSPlatform("windows")]
-    public static SisrProcessManager StartWindowsManaged(string executable, string arguments, string dataDirectory, Action<string> log)
+    public static SisrProcessManager StartWindowsManaged(string executable, string arguments, string dataDirectory, Action<string> log, SisrControllerProfile? controller = null)
     {
         if (!File.Exists(executable)) throw new FileNotFoundException("SISR executable was not found. Check the configured SISR path.", executable);
-        var tokens = SisrManagedStartup.Arguments(arguments); // Reject conflicting owned flags before resources/startup.
+        var tokens = SisrManagedStartup.Arguments(arguments, controller); // Reject conflicting owned flags before resources/startup.
         SisrManagedStartup? config = null;
         try
         {
             var manager = Start(() =>
             {
-                config = SisrManagedStartup.Create(dataDirectory);
+                config = SisrManagedStartup.Create(dataDirectory, controller);
                 log("Managed SISR session log: " + config.LogPath);
                 return new RetainedSisrProcess(Process.Start(config.StartInfo(executable, tokens)) ??
                     throw new InvalidOperationException("Windows did not return an owned SISR process."));

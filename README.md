@@ -43,6 +43,8 @@ You just click "Play" in Steam and everything works.
 - **Add Custom non-UWP Games** — Support importing standard `.exe` executables alongside UWP apps, allowing you to wrap any game to coordinate SISR automatically.
 - **Settings Tabbed GUI** — A single, consolidated interface to manage existing shortcuts, scan and add new UWP games, add custom games, and configure settings.
 - **Per-Game SISR Profiles** — Enable or disable SISR on a per-game basis directly in the UI instead of relying on a global toggle.
+- **Registered-Game Editor** — Edit saved UUID launch details, argument tokens, hints and integration/watch preferences without recreating Steam shortcuts.
+- **Per-Game Controller Options** — Configure managed SISR output type and supported gyro/touchpad/back-button passthrough per registered UUID.
 - **Watch Process Name Overrides** — Easily override which process name to track, allowing the bridge to support games with complex launch chains, DRM launchers (like EA Desktop / Ubisoft Connect), and slow-loading anti-cheat clients.
 - **SteamGridDB Artwork Integration** — Bounded background downloads of grids, heroes, logos, and icons on import, with validated images and independent failure reporting.
 - **One-Click UWPHook Migration** — Effortlessly migrate existing UWPHook shortcuts to use the bridge with a single click.
@@ -92,6 +94,7 @@ use; an empty or unavailable selection blocks those operations.
 - **To Add Custom Games:** Go to **Add Custom Game** tab, fill out the game details, select the executable, and click **Add Custom Game to Steam**.
 - **To Migrate Old Games:** Click **Migrate From UWPHook** in the path configurations panel to convert old UWPHook shortcuts automatically.
 - **To Remove Games:** Go to **Steam Shortcuts** tab, select your games, and click **Remove Selected**.
+- **To Edit Registered Games:** Open **Registered Games**, click **Reload Games** if needed, choose a game, edit its details, and click **Save Game**.
 
 Restart Steam and play!
 
@@ -121,6 +124,52 @@ profile. Argument variants get separate IDs/profile choices. Renaming stored gam
 metadata does not regenerate its UUID or rewrite existing Steam identities. A
 missing ID is an error before activation/SISR startup, not a fallback to COM.
 Removing a Steam shortcut retains the local registration for manual launch/retry.
+
+### Editing the local game registry
+
+The **Registered Games** tab edits the stored launch definition used by
+`launch <game-id>`. It keeps the UUID and explicit provider/launch kind, and commits
+game details together with its UUID-scoped SISR/watch profile. Save failures restore
+the previous in-memory game/profile; duplicate provider/argument variants and
+stale edits are rejected before persistence. **Automatic** inherits the global
+SISR setting. Unknown JSON game/profile fields survive edits.
+
+Editable fields include local display name, target, arguments, discovered process
+hint, install folder and watch override. Executable targets and nonempty install
+folders must be absolute Windows paths; missing files can still be saved for a
+later install/relocation. Review hints/install metadata when changing a target.
+Packaged targets keep their explicit packaged kind and require a family!app
+identity. Standard path/AUMID provider identities follow target edits; opaque
+provider identities are retained. Epic target/arguments are read-only because the
+catalog identity must remain consistent and extra args belong in Epic Launcher.
+
+These are explicit **Save Game** drafts: selecting another game or Reload Games
+replaces the unsaved draft. Existing Steam names, Exe/AppIDs, LaunchOptions and
+artwork files are not rewritten by local edits. Modern ID shortcuts use updated
+launch details on their next launch; legacy shortcuts continue using their own
+target/argument payload. Rename in this tab changes the local registry name, not
+Steam's displayed shortcut name.
+
+### Controller profiles
+
+In **Controller Profiles**, select a registered game and choose whether to override
+SISR controller options. Supported virtual types are **Xbox 360, DualShock 4,
+DualSense, DualSense Edge, and Switch 2 Pro**. Gyro, touchpad and back-button
+passthrough are configurable for devices/output types that support them. Click
+**Save Profile**; the choice is stored with that UUID's integration/watch profile.
+Library edits and Steam per-game toggles retain the controller choice.
+
+An override requires **Managed SISR startup** when integration is enabled. Startup
+owns the corresponding config/environment values and verifies the effective API
+configuration before activating the game. Conflicting advanced controller flags
+are rejected rather than silently taking precedence. Unchecking the override means
+inherit SISR defaults/advanced options; disabled integration bypasses SISR entirely.
+
+These profiles configure SISR's virtual output, not Steam binding/layout selection.
+Matching API settings and no-Steam tests do not prove actual controller input. Use
+the [focused real-world checklist](docs/REAL_WORLD_VALIDATION.md) for Steam/game/
+device verification. Older binaries preserve/ignore the new optional JSON field
+but do not apply controller profiles; use the updated app for profile launches.
 
 ### Epic launching
 
@@ -265,8 +314,8 @@ unreadable files, or undecryptable credentials produce an error instead of defau
 or legacy fallback. No failed load is overwritten. Unknown JSON fields are retained
 on save. JSON supports `=` in game paths that the legacy format could not represent.
 Game UUIDs are stored alongside profiles. Xbox/Store and Epic discovery and custom
-Win32 registration use provider adapters; a registered-game library editor remains
-later work.
+Win32 registration use provider adapters; the registered-game editor persists
+launch details and UUID-scoped preferences in the same atomic document.
 
 ### Diagnostics and log retention
 
@@ -540,6 +589,18 @@ powershell.exe -ExecutionPolicy Bypass -File .\tests\WindowsDiagnosticsSmoke.ps1
 
 This verifies a responsive refresh, redacted report and enabled copy action with
 unchanged settings/Steam/SISR resources. It does not replace your clipboard.
+
+Check the registered-game editor against temporary settings/Steam files and a
+controlled argument-capture executable:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File .\tests\WindowsLibrarySmoke.ps1
+```
+
+It needs the Release solution build and published app. It checks UUID/profile/
+extension preservation, untouched Steam data, failed-save rollback and updated
+ID-launch argument forwarding. No installed integration or normal user state is
+used.
 
 ### Developing through WSL2
 

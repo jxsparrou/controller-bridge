@@ -96,14 +96,18 @@ internal static class GameCatalog
         Game game = definition.WithId(existing ? matches[0].Id : definition.Id);
         if (!existing && settings.Games.ContainsKey(game.Id)) throw new InvalidOperationException("Game ID collision; registration was not changed.");
         var choice = profile ?? settings.GetProfile(existing ? game.ProfileKey : game.Target);
+        if (existing && profile != null && profile.Controller == null)
+            choice = choice with { Controller = settings.GetProfile(game.ProfileKey).Controller };
         var validation = new AppSettings();
         validation.SetSteamInputMode(game.ProfileKey, choice.SteamInput);
         validation.SetWatchProcess(game.ProfileKey, choice.WatchProcess);
+        validation.SetControllerProfile(game.ProfileKey, choice.Controller);
         settings.Games[game.Id] = game;
         if (profile != null || !existing)
         {
             settings.SetSteamInputMode(game.ProfileKey, choice.SteamInput);
             settings.SetWatchProcess(game.ProfileKey, choice.WatchProcess);
+            settings.SetControllerProfile(game.ProfileKey, choice.Controller);
         }
         return game;
     }

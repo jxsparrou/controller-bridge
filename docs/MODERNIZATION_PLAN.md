@@ -1290,6 +1290,95 @@ were not validated.
 - Each implementation summary records exact commands/results, Windows checks
   actually performed, blocked checks, compatibility effects, and the next slice.
 
+### Registered-library edit slice (2026-10-08)
+
+- Added the Registered Games tab with explicit Save Game drafts for local name,
+  target, stored Windows argument tokens, process/install hints and UUID-scoped
+  SISR/watch choices. Selecting another game/Reload replaces the draft. Existing
+  registrations are shown independently of Steam presence; no deletion/rewrite of
+  registrations or Steam shortcuts is introduced in this bounded slice.
+- `GameLibraryEditor` keeps UUID/provider/explicit kind, refreshes conventional
+  path/AUMID identity after a target edit, and preserves opaque provider identities.
+  Epic target/args remain read-only and constructor validated. Win32 edits require
+  absolute Windows targets, packaged identities retain explicit kind, and nonempty
+  install folders require absolute paths. Files need not currently exist, allowing
+  stored launch fixes before install/relocation; hints should be reviewed together.
+- Current immutable game/profile snapshots are checked before commit. Duplicate
+  provider/kind/argument variants, stale game/profile edits and kind/UUID changes
+  fail before persistence. Game and profile are committed in one config document;
+  false/throwing saves restore exact prior state and keep drafts for correction.
+  Explicit automatic/empty profiles retain representation so codec extension fields
+  survive edits back to defaults. Existing Steam AppName/Exe/LaunchOptions/AppIDs/
+  artwork are untouched; ID shortcuts resolve new metadata on their next launch.
+- Windows locked restore, warning-as-error Release build and full suite passed
+  with **339 passed, four opt-in skipped (343 total)** and zero warnings. Six new
+  tests cover UUID/identity/argument/profile updates, rollback, duplicate/stale
+  rejection, explicit-kind/Epic restrictions, unknown JSON field preservation and
+  actual store concurrency failure without overwriting external edits.
+- `WindowsLibrarySmoke.ps1` passed against the published app and synthetic data:
+  actual UI edits preserve UUID/other games/extensions/VDF bytes, a real locked
+  config save reports failure and rolls back memory, and launch UUID forwards edited
+  empty/space/Unicode arguments with its disabled integration profile. The original
+  nine desktop gates were checked: eight passed, while the synthetic Steam import
+  smoke was skipped because Steam was running. No request to stop Steam or alter
+  normal user data was needed. PowerShell 5 property enumeration in the new harness
+  was corrected to count the collection rather than per-property Count values.
+- This is local editing coverage, not Steam rename/readback or gameplay proof.
+  Earlier hosted CI and Sandbox records still cover their exact recorded commits/
+  ZIPs, not these new uncommitted edits. Additional per-game SISR controller-profile
+  configuration can be a separate coding slice; live Steam/controller validation
+  remains user assisted.
+
+### Structured per-game SISR controller profiles (2026-10-08)
+
+- `GameProfile.Controller` is an optional immutable `SisrControllerProfile`,
+  configuring the pinned five virtual types (xbox360/dualshock4/dualsense/
+  dualsenseedge/ns2pro) plus gyro/touchpad/back-button passthrough. Null inherits
+  SISR defaults/advanced options. Existing integration/watch edits, cloning,
+  catalog rediscovery/retry and local library edits retain the override.
+- Optional schema-1 `controller` JSON inside each profile requires typed type and
+  all three boolean fields when present. Unsupported/missing/wrong types fail
+  loading instead of defaulting. Nested controller extension fields survive edits
+  while the override remains; explicitly clearing means inheritance. No migration
+  overwrites old JSON or applies options to disabled integration.
+- Controller Profiles UI provides explicit Save Profile drafts per registered
+  UUID. It uses the library transaction's immutable game/profile snapshot checks,
+  duplicate protection and false/throwing-save rollback. Steam per-game toggles
+  and Save Game retain controller options; the editor can explicitly clear them.
+  No VDF, AppID, artwork or Steam binding/layout writes occur on profile edits.
+- When SISR is enabled, a structured override requires managed startup. Conflicting
+  global long/alias/negated controller flags fail before starting; inheritance
+  permits existing advanced options. Managed JSON/environment owns the four pinned
+  keys/values while preserving Steam context. After API readiness, effective type
+  and all three booleans must match before game activation. Missing/mismatched
+  fields cause a launch error with owned cleanup before the dialog. Disabled SISR
+  bypasses the profile startup policy. This is emulation configuration, not physical
+  input or Steam action-layout selection.
+- Windows locked restore, warning-as-error build/publish and full suite passed:
+  **358 passed, five opt-in skipped (363 total)** with zero warnings. Nineteen
+  new default tests cover independent profiles/setters/clone, old-schema inheritance,
+  strict typed JSON/nested extensions, registry/library preservation and rollback,
+  conflicting flags, pinned enum mapping, config/environment output and effective
+  mismatch rejection. Earlier library-editor tests remain passing.
+- All three installed-SISR no-Steam checks passed separately, including actual
+  DualSense Edge/gyro=false/touchpad=false/back-buttons=true effective API config
+  and graceful owned quit with non-resolving VIIPER. An initial legacy lifecycle
+  log assertion exposed quit racing listener creation before status initialization;
+  that test now waits for owned API readiness, and the rerun passed. No physical
+  controller, normal Steam setup or VIIPER creation is used by these checks.
+- Published library/controller UI smoke passed UUID/profile/nested-extension
+  preservation, locked-save rollback, untouched synthetic VDF and disabled ID launch.
+  Managed SISR smoke passed profile application, readiness/argument/graceful-quit
+  ordering, unsupported API and ignored-profile rejection/owned cleanup, plus
+  pre-start legacy-policy rejection. Seven other desktop smokes passed; the account
+  import smoke was skipped because Steam was running. No request to stop live Steam
+  or change user integration was needed.
+- `docs/REAL_WORLD_VALIDATION.md` supplies a focused one-game/one-account/one-pad
+  checklist for the remaining live import/readback, real launch/input/cleanup and
+  Steam profile-context gates. Automated matching configuration is not controller
+  input proof. Artwork match selection/repair/WebP remain optional enhancements;
+  exact new release ZIPs still need their own clean-machine check.
+
 ## Open validation items
 
 ### First hosted CI execution (2026-10-08; completed)

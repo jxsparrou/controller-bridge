@@ -73,7 +73,8 @@ partial class Program
             }
 
             string profileKey = registeredGame?.ProfileKey ?? request.Target;
-            string watchOverride = Settings.GetProfile(profileKey).WatchProcess;
+            var launchProfile = Settings.GetProfile(profileKey);
+            string watchOverride = launchProfile.WatchProcess;
             string executableHint = request.ResolveProcessHint(watchOverride);
             bool runSisr = Settings.IsSisrEnabledFor(profileKey);
             bool isCustomGame = request.Kind == LegacyLaunchKind.Win32;
@@ -87,13 +88,16 @@ partial class Program
             {
                 if (runSisr)
                 {
+                    if (launchProfile.Controller != null && !Settings.ManagedSisrStartup)
+                        throw new InvalidOperationException("This game has a structured controller profile. Enable Managed SISR startup in Global Settings, or inherit the controller profile.");
                     Log("Launching owned SISR: " + Settings.SisrPath);
                     ownedSisr = Settings.ManagedSisrStartup
-                        ? SisrProcessManager.StartWindowsManaged(Settings.SisrPath, Settings.SisrArguments, AppPaths.ForWindows().DataDirectory, Log)
+                        ? SisrProcessManager.StartWindowsManaged(Settings.SisrPath, Settings.SisrArguments, AppPaths.ForWindows().DataDirectory, Log, launchProfile.Controller)
                         : SisrProcessManager.StartWindows(Settings.SisrPath, Settings.SisrArguments, Log);
                     if (Settings.ManagedSisrStartup)
                     {
                         var status = ownedSisr.WaitForReadyAsync(new WindowsSisrStatus(), CancellationToken.None).GetAwaiter().GetResult();
+                        SisrManagedStartup.VerifyEffectiveProfile(launchProfile.Controller, status);
                         foreach (string line in SisrReadiness.Describe(status)) Log(line);
                     }
                 }
@@ -189,6 +193,12 @@ partial class Program
     }
 
     internal static string ShortcutProfileKey(string options) => GameLaunchCommand.ShortcutProfileKey(options, Settings);
+    internal static bool TryEditGame(Game original, GameProfile originalProfile, Game replacement, GameProfile profile)
+    {
+        try { return GameLibraryEditor.TryCommit(Settings, original, originalProfile, replacement, profile, SaveConfig); }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        { MessageBox.Show(ex.Message, "Registered Game Edit", MessageBoxButtons.OK, MessageBoxIcon.Information); return false; }
+    }
     internal static string ShortcutTarget(string options) => GameLaunchCommand.ShortcutTarget(options, Settings);
 
     static void ShowUsage()
