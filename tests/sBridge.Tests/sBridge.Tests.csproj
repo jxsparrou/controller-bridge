@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsTestProject>true</IsTestProject>
+    <OutputType>Exe</OutputType>
+    <StartupObject>SBridge.Tests.ArgumentProbe</StartupObject>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <IsPackable>false</IsPackable>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Link pure production logic without loading startup, WinForms, or live Steam data. -->
+    <Compile Include="../../Diagnostics/BoundedLog.cs" Link="Diagnostics/BoundedLog.cs" />
+    <Compile Include="../../Diagnostics/ManagedSessionDiagnostics.cs" Link="Diagnostics/ManagedSessionDiagnostics.cs" />
+    <Compile Include="../../Diagnostics/DiagnosticSnapshot.cs" Link="Diagnostics/DiagnosticSnapshot.cs" />
+    <Compile Include="../../VdfParser.cs" Link="Legacy/VdfParser.cs" />
+    <Compile Include="../../Steam/SteamShortcutIdentity.cs" Link="Steam/SteamShortcutIdentity.cs" />
+    <Compile Include="../../Steam/SteamShortcutBuilder.cs" Link="Steam/SteamShortcutBuilder.cs" />
+    <Compile Include="../../Steam/SteamShortcutRepository.cs" Link="Steam/SteamShortcutRepository.cs" />
+    <Compile Include="../../Steam/SteamAccounts.cs" Link="Steam/SteamAccounts.cs" />
+    <Compile Include="../../Steam/SteamShortcutImporter.cs" Link="Steam/SteamShortcutImporter.cs" />
+    <Compile Include="../../Steam/SteamArtworkIconUpdater.cs" Link="Steam/SteamArtworkIconUpdater.cs" />
+    <Compile Include="../../Artwork/ArtworkModels.cs" Link="Artwork/ArtworkModels.cs" />
+    <Compile Include="../../Artwork/ArtworkHttpClient.cs" Link="Artwork/ArtworkHttpClient.cs" />
+    <Compile Include="../../Artwork/ArtworkService.cs" Link="Artwork/ArtworkService.cs" />
+    <Compile Include="../../Artwork/ArtworkStore.cs" Link="Artwork/ArtworkStore.cs" />
+    <Compile Include="../../Sisr/SisrProcessManager.cs" Link="Sisr/SisrProcessManager.cs" />
+    <Compile Include="../../Sisr/WindowsSisrShutdown.cs" Link="Sisr/WindowsSisrShutdown.cs" />
+    <Compile Include="../../Sisr/WindowsTcpListeners.cs" Link="Sisr/WindowsTcpListeners.cs" />
+    <Compile Include="../../Sisr/OwnedSisrHttp.cs" Link="Sisr/OwnedSisrHttp.cs" />
+    <Compile Include="../../Sisr/SisrReadiness.cs" Link="Sisr/SisrReadiness.cs" />
+    <Compile Include="../../Sisr/WindowsSisrStatus.cs" Link="Sisr/WindowsSisrStatus.cs" />
+    <Compile Include="../../Sisr/SisrManagedStartup.cs" Link="Sisr/SisrManagedStartup.cs" />
+    <Compile Include="../../Launching/LegacyLaunchRequest.cs" Link="Launching/LegacyLaunchRequest.cs" />
+    <Compile Include="../../Launching/WindowsCommandLine.cs" Link="Launching/WindowsCommandLine.cs" />
+    <Compile Include="../../Launching/LegacyLaunchOptions.cs" Link="Launching/LegacyLaunchOptions.cs" />
+    <Compile Include="../../Sessions/ProcessObservation.cs" Link="Sessions/ProcessObservation.cs" />
+    <Compile Include="../../Sessions/GameLaunchEvidence.cs" Link="Sessions/GameLaunchEvidence.cs" />
+    <Compile Include="../../Sessions/ProcessMatcher.cs" Link="Sessions/ProcessMatcher.cs" />
+    <Compile Include="../../Sessions/GameSessionMonitor.cs" Link="Sessions/GameSessionMonitor.cs" />
+    <Compile Include="../../Sessions/WindowsProcessObserver.cs" Link="Sessions/WindowsProcessObserver.cs" />
+    <Compile Include="../../Core/AppSettings.cs" Link="Core/AppSettings.cs" />
+    <Compile Include="../../Core/Game.cs" Link="Core/Game.cs" />
+    <Compile Include="../../Core/GameLibraryEditor.cs" Link="Core/GameLibraryEditor.cs" />
+    <Compile Include="../../Core/SisrControllerProfile.cs" Link="Core/SisrControllerProfile.cs" />
+    <Compile Include="../../Core/EpicLaunchIdentity.cs" Link="Core/EpicLaunchIdentity.cs" />
+    <Compile Include="../../Providers/EpicProvider.cs" Link="Providers/EpicProvider.cs" />
+    <Compile Include="../../Providers/EpicDiscovery.cs" Link="Providers/EpicDiscovery.cs" />
+    <Compile Include="../../Providers/WindowsEpicActivation.cs" Link="Providers/WindowsEpicActivation.cs" />
+    <Compile Include="../../Launching/GameLaunchCommand.cs" Link="Launching/GameLaunchCommand.cs" />
+    <Compile Include="../../Providers/IGameProvider.cs" Link="Providers/IGameProvider.cs" />
+    <Compile Include="../../Providers/GameProviders.cs" Link="Providers/GameProviders.cs" />
+    <Compile Include="../../Providers/WindowsGameActivation.cs" Link="Providers/WindowsGameActivation.cs" />
+    <Compile Include="../../Providers/DiscoveryProcessRunner.cs" Link="Providers/DiscoveryProcessRunner.cs" />
+    <Compile Include="../../Providers/XboxDiscovery.cs" Link="Providers/XboxDiscovery.cs" />
+    <Compile Include="../../Configuration/LegacyConfigurationCodec.cs" Link="Configuration/LegacyConfigurationCodec.cs" />
+    <Compile Include="../../Configuration/LegacyConfigurationStore.cs" Link="Configuration/LegacyConfigurationStore.cs" />
+    <Compile Include="../../Configuration/SecretProtection.cs" Link="Configuration/SecretProtection.cs" />
+    <Compile Include="../../Configuration/JsonSettingsCodec.cs" Link="Configuration/JsonSettingsCodec.cs" />
+    <Compile Include="../../Configuration/JsonSettingsStore.cs" Link="Configuration/JsonSettingsStore.cs" />
+    <Compile Include="../../Configuration/AppPaths.cs" Link="Configuration/AppPaths.cs" />
+    <Compile Include="../../Configuration/ConfigurationFileOperations.cs" Link="Configuration/ConfigurationFileOperations.cs" />
+    <None Update="Fixtures/*.hex" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

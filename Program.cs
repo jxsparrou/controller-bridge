@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+// Legacy null contracts are migrated with their subsystem, not the SDK switch.
+#nullable disable
+
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -21,19 +24,29 @@ using System.Windows.Forms;
 using System.Drawing;
 using System.Text;
 using System.Collections.Generic;
+using SBridge.Sisr;
+using SBridge.Launching;
+using SBridge.Sessions;
+using System.Threading;
+using SBridge.Core;
+using SBridge.Configuration;
+using SBridge.Providers;
+using SBridge.Diagnostics;
 
 partial class Program
 {
-    static string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sBridge.cfg");
-    static string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sBridge.log");
+    static string configPath = "";
+    static string logPath = "";
 
-    static string sisrPath = "";
-    static string sisrArguments = "";
-    static bool logEnabled = true;
-    public static bool sisrEnabled = true;
-    public static string sgdbApiKey = "";
-    public static Dictionary<string, bool> perGameSisr = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-    public static Dictionary<string, string> perGameWatch = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    internal static AppSettings Settings { get; private set; } = new AppSettings();
+    private static readonly JsonSettingsStore configurationStore = new JsonSettingsStore(new WindowsSecretProtector());
+    private static JsonSettingsDocument configurationDocument;
+    private static string lastSettingsSaveError;
+    private static bool isReportingSettingsSaveError;
+    private static BoundedLog bridgeLog;
+    internal static readonly XboxProvider XboxGames = new XboxProvider(new WindowsXboxDiscovery(new DiscoveryProcessRunner(Log)), new WindowsPackagedActivation());
+    internal static readonly EpicProvider EpicGames = new EpicProvider(new WindowsEpicDiscovery(), new WindowsEpicActivation());
+    private static readonly GameProviders gameProviders = new GameProviders(XboxGames, EpicGames, new Win32Provider(new WindowsWin32Activation()));
 
     [STAThread]
     static void Main(string[] args)
@@ -42,7 +55,16 @@ partial class Program
         {
             LoadConfig();
 
-            if (args.Length == 0)
+            Game registeredGame = null;
+            LegacyLaunchRequest request;
+            if (GameLaunchCommand.TryParse(args, out Guid gameId))
+            {
+                registeredGame = GameLaunchCommand.Resolve(Settings, gameId);
+                request = LegacyLaunchRequest.FromGame(registeredGame);
+                Log("Resolved game ID=" + registeredGame.Id + ", name=" + registeredGame.Name + ", provider=" + registeredGame.Provider);
+            }
+            else request = LegacyLaunchRequest.Parse(args);
+            if (request == null)
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
@@ -50,98 +72,56 @@ partial class Program
                 return;
             }
 
-            // Parse arguments: args[0] = AUMID or game path, args[1+] = executable/extra args
-            string aumid = args[0];
-            
-            // Fix forward slashes (UWPHook convention)
-            if (!string.IsNullOrEmpty(aumid) && aumid.Contains("/"))
+            string profileKey = registeredGame?.ProfileKey ?? request.Target;
+            var launchProfile = Settings.GetProfile(profileKey);
+            string watchOverride = launchProfile.WatchProcess;
+            string executableHint = request.ResolveProcessHint(watchOverride);
+            bool runSisr = Settings.IsSisrEnabledFor(profileKey);
+            bool isCustomGame = request.Kind == LegacyLaunchKind.Win32;
+            var provider = gameProviders.ForLaunch(request);
+            string extraArgs = WindowsCommandLine.Join(request.Arguments);
+
+            Log(string.Format("Bridge started: Path/AUMID={0}, ExecutableHint={1}, ExtraArgs={2}, CustomGame={3}, SISR={4}", request.Target, executableHint, extraArgs, isCustomGame, runSisr));
+
+            SisrProcessManager ownedSisr = null;
+            try
             {
-                aumid = aumid.Replace('/', '\\');
-            }
-
-            bool isCustomGame = File.Exists(aumid) || aumid.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || aumid.Contains("\\");
-            string executableHint = "";
-            string extraArgs = "";
-
-            string watchOverride;
-            bool hasWatchOverride = perGameWatch.TryGetValue(aumid, out watchOverride) && !string.IsNullOrEmpty(watchOverride);
-
-            if (isCustomGame)
-            {
-                executableHint = hasWatchOverride ? watchOverride : aumid;
-                if (args.Length > 1)
+                if (runSisr)
                 {
-                    string[] extraParts = new string[args.Length - 1];
-                    Array.Copy(args, 1, extraParts, 0, args.Length - 1);
-                    extraArgs = string.Join(" ", extraParts);
-                }
-            }
-            else
-            {
-                executableHint = hasWatchOverride ? watchOverride : (args.Length > 1 ? args[1] : "");
-                if (args.Length > 2)
-                {
-                    string[] extraParts = new string[args.Length - 2];
-                    Array.Copy(args, 2, extraParts, 0, args.Length - 2);
-                    extraArgs = string.Join(" ", extraParts);
-                }
-                if (!hasWatchOverride && !string.IsNullOrEmpty(executableHint) && executableHint.Contains("/"))
-                {
-                    executableHint = executableHint.Replace('/', '\\');
-                }
-            }
-
-            // Determine if SISR should be run for this specific game
-            bool runSisr = sisrEnabled;
-            bool overrideVal;
-            if (perGameSisr.TryGetValue(aumid, out overrideVal))
-            {
-                runSisr = overrideVal;
-            }
-
-            Log(string.Format("Bridge started: Path/AUMID={0}, ExecutableHint={1}, ExtraArgs={2}, CustomGame={3}, SISR={4}", aumid, executableHint, extraArgs, isCustomGame, runSisr));
-
-            if (runSisr)
-            {
-                // Validate SISR path
-                if (!File.Exists(sisrPath))
-                {
-                    string msg = string.Format("SISR executable not found at: {0}\n\nPlease check the path in your config file:\n{1}", sisrPath, configPath);
-                    Log(msg);
-                    MessageBox.Show(msg, "SISR Integration Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
+                    if (launchProfile.Controller != null && !Settings.ManagedSisrStartup)
+                        throw new InvalidOperationException("This game has a structured controller profile. Enable Managed SISR startup in Global Settings, or inherit the controller profile.");
+                    Log("Launching owned SISR: " + Settings.SisrPath);
+                    ownedSisr = Settings.ManagedSisrStartup
+                        ? SisrProcessManager.StartWindowsManaged(Settings.SisrPath, Settings.SisrArguments, AppPaths.ForWindows().DataDirectory, Log, launchProfile.Controller)
+                        : SisrProcessManager.StartWindows(Settings.SisrPath, Settings.SisrArguments, Log);
+                    if (Settings.ManagedSisrStartup)
+                    {
+                        var status = ownedSisr.WaitForReadyAsync(new WindowsSisrStatus(), CancellationToken.None).GetAwaiter().GetResult();
+                        SisrManagedStartup.VerifyEffectiveProfile(launchProfile.Controller, status);
+                        foreach (string line in SisrReadiness.Describe(status)) Log(line);
+                    }
                 }
 
-                // Terminate any existing SISR and VIIPER instances to avoid conflicts and start clean
-                KillBackgroundProcesses();
-
-                // Start SISR
-                Log(string.Format("Launching SISR: {0} {1}", sisrPath, sisrArguments));
-                ProcessStartInfo sisrInfo = new ProcessStartInfo(sisrPath, sisrArguments);
-                sisrInfo.UseShellExecute = false;
-                sisrInfo.CreateNoWindow = true;
-                Process.Start(sisrInfo);
+                var observer = new WindowsProcessObserver();
+                var monitor = new GameSessionMonitor(observer);
+                var baseline = observer.Capture();
+                var started = DateTimeOffset.UtcNow;
+                string expectedPath = Path.IsPathFullyQualified(executableHint) ? Path.GetFullPath(executableHint) : null;
+                if (isCustomGame && string.IsNullOrEmpty(watchOverride) &&
+                    (registeredGame == null || registeredGame.ProcessHint.Length == 0)) expectedPath = Path.GetFullPath(request.Target);
+                string installDirectory = registeredGame?.InstallDirectory ?? (isCustomGame ? Path.GetDirectoryName(Path.GetFullPath(request.Target)) : null);
+                // Provider launching stays on this STA thread; discovery/monitoring
+                // are async. Providers own neither SISR nor session decisions.
+                var context = new ProviderLaunchContext(Guid.NewGuid(), started, baseline, executableHint, expectedPath, installDirectory);
+                Log("Launch provider=" + provider.Id);
+                var evidence = provider.Launch(request, context, Log);
+                var result = monitor.MonitorAsync(evidence, Log, CancellationToken.None).GetAwaiter().GetResult();
+                if (result.Outcome != GameSessionOutcome.Completed)
+                    throw new InvalidOperationException("The game session could not be identified or exceeded a handoff/startup limit. Check the session log and Watch Process hint.");
             }
-
-            int gamePid = 0;
-            if (isCustomGame)
+            finally
             {
-                gamePid = LaunchCustomGame(aumid, extraArgs);
-            }
-            else
-            {
-                // Launch UWP app directly via COM
-                gamePid = LaunchUWPApp(aumid, extraArgs);
-            }
-
-            // Wait for the game to exit
-            WaitForGameExit(gamePid, executableHint);
-
-            if (runSisr)
-            {
-                // Terminate SISR and VIIPER
-                Log("Terminating SISR and VIIPER...");
-                KillBackgroundProcesses();
+                ownedSisr?.Dispose();
             }
 
             Log("Bridge exiting successfully.");
@@ -154,167 +134,72 @@ partial class Program
         }
     }
 
-    static void KillBackgroundProcesses()
-    {
-        try
-        {
-            Log("Resetting forced Steam controller AppID...");
-            ProcessStartInfo psi = new ProcessStartInfo("steam://forceinputappid/0");
-            psi.UseShellExecute = true;
-            Process.Start(psi);
-        }
-        catch (Exception ex)
-        {
-            Log("Failed to reset forced Steam controller AppID: " + ex.Message);
-        }
-
-        KillProcessesByName("SISR");
-        KillProcessesByName("viiper");
-    }
-
-    static void KillProcessesByName(string name)
-    {
-        try
-        {
-            Process[] processes = Process.GetProcessesByName(name);
-            foreach (Process p in processes)
-            {
-                try
-                {
-                    Log(string.Format("Killing running {0} process (PID: {1})", name, p.Id));
-                    p.Kill();
-                    p.WaitForExit(5000);
-                }
-                catch (Exception ex)
-                {
-                    Log(string.Format("Failed to kill {0} process: {1}", name, ex.Message));
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Log(string.Format("Error searching for {0} processes: {1}", name, ex.Message));
-        }
-    }
-
     public static void LoadConfig()
     {
-        // Set default values first
+        var paths = AppPaths.ForWindows();
+        configPath = paths.ConfigFile;
+        logPath = paths.LogFile;
+        configurationDocument = null;
         string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-
-        // Guesses for SISR
-        sisrPath = Path.Combine(localAppData, @"SISR\SISR.exe");
-        if (!File.Exists(sisrPath))
+        string defaultSisrPath = Path.Combine(localAppData, @"SISR\SISR.exe");
+        if (!File.Exists(defaultSisrPath))
         {
             string alternative = Path.Combine(localAppData, @"Programs\SISR\SISR.exe");
-            if (File.Exists(alternative)) sisrPath = alternative;
+            if (File.Exists(alternative)) defaultSisrPath = alternative;
         }
-
-        sisrArguments = "";
-        logEnabled = true;
-        sisrEnabled = true;
-        sgdbApiKey = "";
-        perGameSisr.Clear();
-        perGameWatch.Clear();
-
-        if (File.Exists(configPath))
-        {
-            try
-            {
-                string[] lines = File.ReadAllLines(configPath);
-                foreach (string line in lines)
-                {
-                    string trimmed = line.Trim();
-                    if (trimmed.StartsWith("#") || trimmed.StartsWith(";")) continue; // comments
-
-                    int eqIdx = trimmed.IndexOf('=');
-                    if (eqIdx > 0)
-                    {
-                        string key = trimmed.Substring(0, eqIdx).Trim();
-                        string val = trimmed.Substring(eqIdx + 1).Trim();
-
-                        if (key.Equals("SisrPath", StringComparison.OrdinalIgnoreCase))
-                        {
-                            sisrPath = val;
-                        }
-                        else if (key.Equals("SisrArguments", StringComparison.OrdinalIgnoreCase))
-                        {
-                            sisrArguments = val;
-                        }
-                        else if (key.Equals("LogEnabled", StringComparison.OrdinalIgnoreCase))
-                        {
-                            bool.TryParse(val, out logEnabled);
-                        }
-                        else if (key.Equals("SisrEnabled", StringComparison.OrdinalIgnoreCase))
-                        {
-                            bool.TryParse(val, out sisrEnabled);
-                        }
-                        else if (key.Equals("SgdbApiKey", StringComparison.OrdinalIgnoreCase))
-                        {
-                            sgdbApiKey = val;
-                        }
-                        else if (key.StartsWith("Sisr_", StringComparison.OrdinalIgnoreCase))
-                        {
-                            string gameId = key.Substring(5).Trim();
-                            bool enabled;
-                            if (bool.TryParse(val, out enabled))
-                            {
-                                perGameSisr[gameId] = enabled;
-                            }
-                        }
-                        else if (key.StartsWith("Watch_", StringComparison.OrdinalIgnoreCase))
-                        {
-                            string gameId = key.Substring(6).Trim();
-                            perGameWatch[gameId] = val;
-                        }
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                // Fallback to defaults, but we can't log yet since config parsing failed
-            }
-        }
-        else
-        {
-            // Write default config
-            SaveConfig();
-        }
+        configurationDocument = configurationStore.LoadOrMigrate(configPath, paths.LegacyConfigFile, new AppSettings { SisrPath = defaultSisrPath });
+        Settings = configurationDocument.Settings;
+        bridgeLog = new BoundedLog(logPath);
+        lastSettingsSaveError = null;
     }
 
-    public static void SaveConfig()
+    public static bool SaveConfig()
     {
+        if (isReportingSettingsSaveError) return false; // No nested commit during a failed-registration dialog.
+        var result = configurationDocument == null ? new SettingsSaveResult(false, "Settings were not loaded; no configuration will be overwritten.")
+            : configurationStore.Save(configurationDocument);
+        if (result.Succeeded)
+        {
+            lastSettingsSaveError = null;
+            return true;
+        }
+        string message = "Settings were not saved.\n\n" + configPath + "\n" + result.Error;
+        Log(message);
+        if (lastSettingsSaveError == null && !isReportingSettingsSaveError)
+        {
+            // Set before the modal dialog: focus-change events may retry auto-save.
+            // Temporary filenames vary across retries, so message equality is not
+            // a reliable deduplication key. A successful save resets the episode.
+            lastSettingsSaveError = message;
+            isReportingSettingsSaveError = true;
+            try { MessageBox.Show(message, "Error Saving Settings", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            finally { isReportingSettingsSaveError = false; }
+        }
+        return false;
+    }
+
+    internal static bool TryRegisterGames(IReadOnlyList<Game> definitions, IReadOnlyList<GameProfile> profiles, out List<Game> registered)
+    {
+        registered = new List<Game>();
         try
         {
-            using (StreamWriter sw = new StreamWriter(configPath))
-            {
-                sw.WriteLine("# sBridge Configuration");
-                sw.WriteLine("# Modify the paths below to match your installation");
-                sw.WriteLine();
-                sw.WriteLine("SisrPath=" + sisrPath);
-                sw.WriteLine("SisrArguments=" + sisrArguments);
-                sw.WriteLine("SisrEnabled=" + sisrEnabled.ToString().ToLower());
-                sw.WriteLine("SgdbApiKey=" + sgdbApiKey);
-                sw.WriteLine("LogEnabled=" + logEnabled.ToString().ToLower());
-                sw.WriteLine();
-                sw.WriteLine("# Per-game SISR Settings");
-                foreach (var kvp in perGameSisr)
-                {
-                    sw.WriteLine(string.Format("Sisr_{0}={1}", kvp.Key, kvp.Value.ToString().ToLower()));
-                }
-                sw.WriteLine();
-                sw.WriteLine("# Per-game Watch Processes");
-                foreach (var kvp in perGameWatch)
-                {
-                    sw.WriteLine(string.Format("Watch_{0}={1}", kvp.Key, kvp.Value));
-                }
-            }
+            return GameCatalog.TryCommit(Settings, definitions, profiles, SaveConfig, out registered);
         }
-        catch
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
-            // Ignore write errors
+            MessageBox.Show(ex.Message, "Game Registration Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+        return false;
     }
+
+    internal static string ShortcutProfileKey(string options) => GameLaunchCommand.ShortcutProfileKey(options, Settings);
+    internal static bool TryEditGame(Game original, GameProfile originalProfile, Game replacement, GameProfile profile)
+    {
+        try { return GameLibraryEditor.TryCommit(Settings, original, originalProfile, replacement, profile, SaveConfig); }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        { MessageBox.Show(ex.Message, "Registered Game Edit", MessageBoxButtons.OK, MessageBoxIcon.Information); return false; }
+    }
+    internal static string ShortcutTarget(string options) => GameLaunchCommand.ShortcutTarget(options, Settings);
 
     static void ShowUsage()
     {
@@ -323,6 +208,7 @@ partial class Program
             "=======\n" +
             "This program launches UWP or custom PC games. When launched with a UWP App ID (AUMID) or executable path, it optionally runs SISR in the background, starts the game, and cleans up when the game closes.\n\n" +
             "Usage:\n" +
+            "  sBridge.exe launch <game-id>\n" +
             "  sBridge.exe <AUMID_or_Path> [executable_hint_or_arguments]\n\n" +
             "Config File:\n" +
             "  {0}\n\n" +
@@ -333,9 +219,9 @@ partial class Program
             "2. Alternatively, manually add a shortcut pointing to this 'sBridge.exe' file, passing the AUMID or game path as an argument.\n\n" +
             "Click OK to open the configuration file folder.",
             configPath,
-            sisrPath,
-            File.Exists(sisrPath) ? "Yes" : "No",
-            sisrEnabled ? "Yes" : "No"
+            Settings.SisrPath,
+            File.Exists(Settings.SisrPath) ? "Yes" : "No",
+            Settings.SisrEnabled ? "Yes" : "No"
         );
 
         MessageBox.Show(message, "sBridge Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -353,35 +239,32 @@ partial class Program
 
     static void Log(string message)
     {
-        if (!logEnabled) return;
-        try
+        if (!Settings.LogEnabled) return;
+        bridgeLog?.Write(message, Settings.SteamGridDbApiKey);
+    }
+
+    internal static DiagnosticSnapshot CollectDiagnostics(AppSettings settings)
+    {
+        var accounts = FindSteamAccounts(false);
+        var ids = new HashSet<string>(StringComparer.Ordinal); foreach (var account in accounts) ids.Add(account.Id);
+        int unavailable = 0; foreach (string id in settings.SelectedSteamAccountIds) if (!ids.Contains(id)) unavailable++;
+        var external = new HashSet<int>();
+        foreach (string name in new[] { "SISR", Path.GetFileNameWithoutExtension(settings.SisrPath) })
         {
-            string entry = string.Format("[{0:yyyy-MM-dd HH:mm:ss}] {1}\r\n", DateTime.Now, message);
-            File.AppendAllText(logPath, entry);
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            var processes = Process.GetProcessesByName(name);
+            try { foreach (var process in processes) external.Add(process.Id); }
+            finally { foreach (var process in processes) process.Dispose(); }
         }
-        catch
-        {
-            // Ignore logging errors
-        }
+        return new DiagnosticSnapshot(typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown", Environment.Version.ToString(),
+            settings.LogEnabled, bridgeLog?.FailedWrites ?? 0, IsSteamRunning(), accounts.Count, settings.SelectedSteamAccountIds.Count, unavailable,
+            settings.Games.Count, settings.GameProfiles.Count, settings.SisrEnabled, settings.ManagedSisrStartup,
+            !string.IsNullOrWhiteSpace(settings.SisrPath), File.Exists(settings.SisrPath), external.Count, !string.IsNullOrEmpty(settings.SteamGridDbApiKey),
+            ManagedSessionDiagnostics.ReadLatest(AppPaths.ForWindows().DataDirectory));
     }
 
     public static string ParseFirstArgument(string launchOptions)
     {
-        if (string.IsNullOrEmpty(launchOptions)) return "";
-        string trimmed = launchOptions.Trim();
-        if (trimmed.StartsWith("\""))
-        {
-            int nextQuote = trimmed.IndexOf('"', 1);
-            if (nextQuote > 0)
-            {
-                return trimmed.Substring(1, nextQuote - 1);
-            }
-        }
-        int spaceIdx = trimmed.IndexOf(' ');
-        if (spaceIdx > 0)
-        {
-            return trimmed.Substring(0, spaceIdx);
-        }
-        return trimmed;
+        return WindowsCommandLine.FirstArgument(launchOptions);
     }
 }

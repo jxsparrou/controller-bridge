@@ -1,0 +1,55 @@
+name: Windows build and packages
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore locked dependencies
+        run: dotnet.exe restore .\sBridge.slnx --locked-mode
+      - name: Build Release
+        run: dotnet.exe build .\sBridge.slnx -c Release --no-restore -warnaserror
+      - name: Test portable logic and native Windows integration
+        run: dotnet.exe test .\sBridge.slnx -c Release --no-build --logger "trx;LogFileName=windows.trx" --results-directory .\artifacts\test-results --blame-hang-timeout 45s --blame-hang-dump-type none
+      - name: Publish development app
+        run: .\build.ps1
+      - name: Package both runtime modes
+        run: .\package.ps1 -Version "0.0.0-ci.${{ github.run_number }}" -Revision "${{ github.sha }}"
+      - name: Smoke-check packaged payloads without desktop automation
+        run: |
+          $ErrorActionPreference = "Stop"
+          Get-ChildItem .\artifacts\packages\*.zip | ForEach-Object {
+            & .\tests\WindowsPackageSmoke.ps1 -Package $_.FullName
+          }
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-test-results
+          path: artifacts/test-results/**
+          if-no-files-found: ignore
+      - name: Upload checked development packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sBridge-win-x64-packages
+          path: artifacts/packages/*
+          if-no-files-found: error
