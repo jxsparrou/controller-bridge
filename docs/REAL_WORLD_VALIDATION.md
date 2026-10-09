@@ -7,6 +7,13 @@ results without copying credentials or raw logs.
 
 ## First run: one game, one account, one controller
 
+Maintainer observations passed for a created Witcher 3 shortcut with SISR disabled
+and Hades II with legacy SISR, managed inheritance/late connection, and an explicit
+managed Xbox 360 override. Input and basic normal-exit/Steam-session behavior worked.
+See [the reported results and limitations](validation/2026-10-09-real-games.md).
+These results cover the reported games/controller, not every provider, output type
+or passthrough feature.
+
 1. Keep the current application's supporting files together in a permanent folder.
    Open sBridge with no arguments. Existing per-user JSON state is authoritative;
    do not change normal state through test environment overrides.
